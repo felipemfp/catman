@@ -1,0 +1,40 @@
+{
+  "name": "catman",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.22",
+    "npm": ">=11"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
+    "dev": "vite",
+    "dev:worker": "vite build && wrangler dev",
+    "build": "npm run typecheck && vite build",
+    "build:e2e": "vite build --mode e2e --outDir dist-e2e",
+    "typecheck": "wrangler types && tsc -p tsconfig.core.json && tsc -p tsconfig.sim.json && tsc -p tsconfig.client.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.e2e.json",
+    "lint": "eslint .",
+    "test:gate": "vitest run --project core --project sim --project client",
+    "test": "vitest run && vitest run -c vitest.worker.config.ts",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm test && npm run build && npm run test:e2e",
+    "bench": "vitest bench --run --project tools",
+    "sim": "node src/sim/cli.ts",
+    "sim:periodic": "CATMAN_FULL=1 vitest run --project core --project sim",
+    "fixture:regen": "node tools/regen-fixtures.ts",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.6.0",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.14.0",
+    "phaser": "^4.2.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.6",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.158.0"
+  }
+}
