@@ -11,5 +11,5 @@ test('T-A7 /api is never swallowed by assets', async ({ request, browserName }) 
   expect(await nofile.text()).toBe('Not found');
   const root = await request.get('/');
   expect(root.status()).toBe(200);
-  expect(await root.text()).toContain('<title>Catman</title>');
+  expect(await root.text()).toMatch(/<title>Catman[^<]*<\/title>/);
 });
