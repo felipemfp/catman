@@ -222,13 +222,13 @@ There's no LLM in this product, so no evals. The periodic lane is the balance sw
 
 - [ ] Every module spec's success criteria pass.
 - [ ] `npm run check` is green on a clean clone after `npm ci && npx playwright install --with-deps`.
-- [ ] Deployed to `catman.<subdomain>.workers.dev`; a run shared from desktop is played with its ghost on a phone over mobile data (both devices named in the PR).
+- [ ] Deployed to `catman.felipemfp.dev` (or `workers.dev` until the zone is added); a run shared from desktop is played with its ghost on a phone over mobile data (both devices named in the PR).
 - [ ] `npm run sim -- --builds all --runs 1000 --check` exits 0.
 - [ ] Playtest with ≥2 friends done, and each outcome row above has its measured value and pass/fail appended to `docs/ideas/catman.md`.
 
 ## Open Questions
 
-1. **Golden fixture:** this spec allows exactly one change-detector test (above). Approve, or rely only on the cross-engine replay test plus manual `CORE_VERSION` discipline?
-2. **Domain:** `workers.dev` is enough for friends. A custom domain changes only `wrangler.jsonc` routes.
-3. **Bot vs human:** if playtests disagree with the sim, proposed: playtest wins, and the bot is fixed to match.
+1. **Golden fixture (approved 2026-11-09):** exactly one change-detector test, as above.
+2. **Domain (resolved 2026-11-09):** `catman.felipemfp.dev`, once the zone is on the Cloudflare account. The route is written, commented out, in `wrangler.jsonc`; until then, `workers.dev`.
+3. **Bot vs human (approved 2026-11-09):** if playtests disagree with the sim, the playtest wins and the bot is fixed to match.
 4. **Pencil vs boss 0** and **kills only for score:** design-intent questions in SPEC-game-core § Open Questions.

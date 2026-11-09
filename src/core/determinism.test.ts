@@ -1,6 +1,7 @@
 import { describe, expect, inject, it } from 'vitest';
 import type { CoreEvent, InputLevel } from './types.ts';
-import { createRun, generateSegment, hashState, step, view, createRecorder, decodeInputLog, config } from './index.ts';
+import { createRun, generateSegment, hashState, step, view, createRecorder, decodeInputLog, config, simulateBossFight } from './index.ts';
+import { defaultMods } from './stats.ts';
 import { runFromScenario } from './testing.ts';
 import { pattern } from './test-util.test-helpers.ts';
 
@@ -59,8 +60,10 @@ describe('T-lane (F2): the lane is independent of how long a boss took', () => {
   for (const seed of seeds) {
     it(seed, () => {
       const bossX = generateSegment(seed, config.boss.everyM / config.lane.segmentM).bossX!;
+      // boss HP just under what base laser deals by reach: the slow run kills late, the ×20 run kills early
+      const hp = 0.9 * simulateBossFight(defaultMods(), 'laser', 1e12, bossX).damageByReach;
       const mk = (damageMult: number) =>
-        runFromScenario({ seed, distanceM: 450, weapon: 'laser', mods: { damageMult }, hp: 1e9, catX: bossX });
+        runFromScenario({ seed, distanceM: 450, weapon: 'laser', mods: { damageMult }, hp: 1e9, catX: bossX, nextBossHp: hp });
       const fast = mk(20);
       const slow = mk(1);
       type Snap = { dist: number; ents: Map<number, string>; seen: Set<number> };
