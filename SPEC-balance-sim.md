@@ -241,3 +241,37 @@ Still failing, carried over from CORE_VERSION 8/9:
 - laser > pencil dominance
 - pencil median 0.72×
 - pencil and fishbone ratKillRate 0.58 / 0.57
+
+## Balance pass: every target green (CORE_VERSION 12)
+
+Felipe: "lets do the balance changes now". Four lines had failed since CORE_VERSION 8: laser dominance, the pencil median, and the pencil and fishbone ratKillRate.
+
+**The pencil bot was the problem.** With the same weapon numbers, the range-first pencil bot (picked in the first balance pass) reached 0.69× the other medians, and a damage/fire-rate-first bot reached 2.06×. Bosses now track the cat and come to it, so range buys nothing in a fight. Felipe chose: DPS-first bot, then nerf pencil. `PREFERRED.pencil` is now the laser rule (`onDpsAxis`).
+
+**Final numbers** (old → new):
+
+| | |
+|---|---|
+| pencil | damage 16 → 16, rate 5 → 4, pierce 2 → 1 (64 base DPS) |
+| laser | dps 70 → 80 |
+| yarn | damage 20 → 27, rate 3.5 → 4 |
+| fishbone | damage 14 → 21, range 420 → 500, spread 0.9 → 0.5 |
+| boss | baseHp 650 → 500, hpGrowth 1.1 → 1.17, pierceBonus 0.15 → 0.18 |
+
+- Pencil is everyone's weapon at boss 0, so boss 0 HP falls with the pencil nerf. hpGrowth rises to keep later bosses a threat (boss 4 HP ≈ 937, was ≈ 952).
+- Narrow spread makes fishbone hit columns.
+- The pierce bonus closes the boss-0 gap between DPS-picking bots and pierce/projectile-picking bots, which was just over the 0.05 dominance margin.
+
+**Sweep (1000 runs, b24): 33/33 lines pass.**
+
+| build | median (m) | ratKill | boss0 |
+|---|---|---|---|
+| pencil | 3707 | 0.69 | 0.97 |
+| laser | 3234 | 0.71 | 0.97 |
+| yarn | 2900 | 0.66 | 0.94 |
+| fishbone | 2800 | 0.61 | 0.94 |
+
+- Boss fights cause 0.431 of deaths.
+- Variants won: horde 0.96, frenzy 0.97, twins 0.90. Shares of boss deaths: 0.29 / 0.21 / 0.68.
+
+It took 24 rounds; the rounds and their artifacts are in /tmp/catman-sim/b1…b24. A round that only moved boss HP traded the boss-0 ceiling (0.98) against the holding floor. The fix was evening out base DPS and the bot's gate picks.

@@ -176,14 +176,16 @@ function still(weapon: WeaponId, rats: { x: number; y: number; hp: number }[], m
 }
 
 describe('T-hits', () => {
-  it('pencil with pierce 2 hits 3 stacked rats, then is removed', () => {
+  it('a pencil with pierce p hits p + 1 stacked rats, then is removed', () => {
+    const p = config.weapons.pencil.pierce;
     const y = catTopY - config.weapons.pencil.speedU;
-    const run = still('pencil', [{ x: 270, y, hp: 1000 }, { x: 270, y: y - 1, hp: 1000 }, { x: 270, y: y - 2, hp: 1000 }, { x: 270, y: y - 3, hp: 1000 }]);
+    const rats = Array.from({ length: p + 2 }, (_, i) => ({ x: 270, y: y - i, hp: 1000 }));
+    const run = still('pencil', rats);
     const ev = step(run, 0);
-    expect(ofType(ev, 'damage')).toHaveLength(3);
+    expect(ofType(ev, 'damage')).toHaveLength(p + 1);
     expect(view(run).projectiles).toHaveLength(0);
     const d = config.weapons.pencil.damage;
-    expect(view(run).rats.map((r) => r.hp)).toEqual([1000 - d, 1000 - d, 1000 - d, 1000]);
+    expect(view(run).rats.map((r) => r.hp)).toEqual(rats.map((_, i) => (i <= p ? 1000 - d : 1000)));
   });
   it('one pencil on the boss deals one hit and is removed', () => {
     const run = runFromScenario({ seed: 'hits1', distanceM: 1000, hp: 1e9, boss: { x: 270, y: catTopY - 80, hp: 500 } });

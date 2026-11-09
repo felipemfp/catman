@@ -83,16 +83,16 @@ export const config = deepFreeze({
      */
     horde: { firstTicks: 40, everyTicks: 100, minEveryTicks: 50, gapSlots: 4, speedU: 2.8, homeFrac: 0.25 },
     frenzy: { firstTicks: 60, everyTicks: 120, minEveryTicks: 60, rats: 5, speedU: 5, homeFrac: 0.8 },
-    sizeU: 120, speedUPerTick: 1.2, baseHp: 650, hpGrowth: 1.1, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.15,
+    sizeU: 120, speedUPerTick: 1.2, baseHp: 500, hpGrowth: 1.17, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.18,
     /** Sideways tracking toward the cat, U per tick. */
     trackUPerTick: 0.8,
     /** Ticks without a hit before the boss speeds up; then +rageRampPerTick × base per tick, up to rageMax × base. */
     missGraceTicks: 45, rageRampPerTick: 0.02, rageMax: 3 },
   weapons: {
-    pencil: { kind: 'projectile' as const, damage: 16, rate: 5, projectiles: 1, pierce: 2, bounces: 0, rangeU: 520, speedU: 14, spreadVx: 0.6, w: 6, h: 16 },
-    laser: { kind: 'beam' as const, dps: 70, beams: 1, beamWidthU: 14, beamSpacingU: 22, rangeU: 700, pierce: 0 },
-    yarn: { kind: 'projectile' as const, damage: 20, rate: 3.5, projectiles: 1, pierce: 0, bounces: 3, rangeU: 700, speedU: 10, spreadVx: 0.8, w: 12, h: 12, retargetRadiusU: 250 },
-    fishbone: { kind: 'projectile' as const, damage: 14, rate: 3.5, projectiles: 5, pierce: 0, bounces: 0, rangeU: 420, speedU: 12, spreadVx: 0.9, w: 8, h: 12 },
+    pencil: { kind: 'projectile' as const, damage: 16, rate: 4, projectiles: 1, pierce: 1, bounces: 0, rangeU: 520, speedU: 14, spreadVx: 0.6, w: 6, h: 16 },
+    laser: { kind: 'beam' as const, dps: 80, beams: 1, beamWidthU: 14, beamSpacingU: 22, rangeU: 700, pierce: 0 },
+    yarn: { kind: 'projectile' as const, damage: 27, rate: 4, projectiles: 1, pierce: 0, bounces: 3, rangeU: 700, speedU: 10, spreadVx: 0.8, w: 12, h: 12, retargetRadiusU: 250 },
+    fishbone: { kind: 'projectile' as const, damage: 21, rate: 3.5, projectiles: 5, pierce: 0, bounces: 0, rangeU: 500, speedU: 12, spreadVx: 0.5, w: 8, h: 12 },
   },
   clamps: {
     multMin: 0.25,

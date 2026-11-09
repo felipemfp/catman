@@ -226,11 +226,12 @@ describe('T-warning (F2, F12)', () => {
             warned = false;
             spawned++;
             stateOf(run).boss!.hp = 0; // dies next tick whatever the build (narrow gates can cripple one); only the lane matters here
+            if (stateOf(run).twin) stateOf(run).twin!.hp = 0; // twins (CORE_VERSION 10): both, or the survivor can end the run
           }
         }
         if (view(run).over !== null) break;
       }
-      expect(spawned).toBe(bosses);
+      expect({ seed, spawned }).toEqual({ seed, spawned: bosses });
     }
   });
 });
