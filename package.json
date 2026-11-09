@@ -5,7 +5,7 @@
   "type": "module",
   "engines": {
     "node": ">=22.22",
-    "npm": ">=11"
+    "npm": ">=10.9"
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
