@@ -43,7 +43,12 @@ async function postGhost(req: Request, env: Env, log: Log): Promise<Response> {
   } catch {
     log.error = 'rl_error'; // fail open (A10); the KV daily quota is the backstop
   }
-  const bytes = await readCapped(req, ghostLimits.maxBodyBytes);
+  let bytes: Uint8Array | null;
+  try {
+    bytes = await readCapped(req, ghostLimits.maxBodyBytes);
+  } catch {
+    return fail(log, 400, 'bad_json'); // upload aborted mid-body: still one logged JSON response
+  }
   if (bytes === null) return fail(log, 413, 'body_too_large');
   let body: unknown;
   try {
