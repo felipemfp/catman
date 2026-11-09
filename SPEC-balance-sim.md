@@ -166,3 +166,18 @@ Results (1000 runs; 3000 runs agree within 0.04):
 ## Tuna (CORE_VERSION 5)
 
 Bots: when hurt, a bot steers to a tuna between 0 and 400 U above the cat line, if that x is safe. 1000-run sweep: about 0.38 heals per 1000 m. Pencil, yarn and fishbone change little, since bosses end their runs. Laser's median goes from 3796 to 8500 m, 25% of laser runs hit the 20-minute cap, and dominance trips (laser > fishbone). Tuna amplifies the open DPS-stacking issue from § Casual retune; it doesn't create it. A rarer tuna (chance 0.5: laser median 6114, dominance still tripped) doesn't fix it, so the designed rate stays until the DPS question is decided.
+
+## Boss and gates rework (CORE_VERSION 6)
+
+Felipe chose "shape picks get boss value", plus a tracking, raging boss and guarded good gates. Laser-build median distance across the steps (1000 runs):
+
+| step | laser ÷ weapon median | boss-0 kill (others) |
+|---|---|---|
+| after tuna (v5) | 2.98× | 0.87 |
+| + pierce drills boss, 0.35 | 2.30× | 0.99 (too easy) |
+| pierceBonus 0.15 | 2.62× | 0.94 |
+| + linear DPS stacking | 2.17× | 0.94 |
+| + boss tracking and rage | 2.13× | 0.91–0.92 |
+| + gate guards | 2.00× | 0.91–0.92 |
+
+Still failing: laser median distance 2.0× (band 1.33×), and ratKillRate for yarn (0.587) and fishbone (0.556). Each change moved the laser gap the right way and none closed it. Its runs now end mostly to rats (756 of 1000), so what's left is how the DPS-greedy bot survives late rats, not bosses. The bots also always stand under the boss, so rage rarely fires for them; human players will feel it more than this table shows.
