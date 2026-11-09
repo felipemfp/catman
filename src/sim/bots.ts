@@ -14,17 +14,18 @@ const RAT = config.rat.sizeU;
 const CANDIDATES = Array.from({ length: 26 }, (_, i) => 20 + 20 * i);
 const LOOKAHEAD = 30;
 
-const PREFERRED: Record<Exclude<Build, 'random'>, (s: StatKey) => boolean> = {
-  laser: onDpsAxis,
-  fishbone: (s) => s === 'projectilesAdd' || s === 'pierceAdd',
-  yarn: (s) => s === 'projectilesAdd' || s === 'pierceAdd',
-  pencil: (s) => s === 'pierceAdd' || s === 'rangeMult',
+/** Preference rank of a buff stat: 0 = off-axis, higher wins. Equal ranks fall to the left half. */
+const PREFERRED: Record<Exclude<Build, 'random'>, (s: StatKey) => number> = {
+  laser: (s) => (onDpsAxis(s) ? 1 : 0),
+  fishbone: (s) => (s === 'projectilesAdd' || s === 'pierceAdd' ? 1 : 0),
+  yarn: (s) => (s === 'projectilesAdd' || s === 'pierceAdd' ? 1 : 0),
+  // range first: it is what lands pencil damage on the boss (SPEC-balance-sim § First balance pass)
+  pencil: (s) => (s === 'rangeMult' ? 2 : s === 'pierceAdd' ? 1 : 0),
 };
 
-function halfIsPreferred(build: Exclude<Build, 'random'>, gate: Gate, held: WeaponId): boolean {
+function halfRank(build: Exclude<Build, 'random'>, gate: Gate, held: WeaponId): number {
   if (gate.kind === 'weapon') {
-    if (gate.weapon === build && held !== build) return true;
-    if (gate.weapon !== held) return false; // would swap us off our weapon
+    if (gate.weapon !== held) return 0; // would swap us off our weapon
     return PREFERRED[build](gate.fallback.buff.stat);
   }
   return PREFERRED[build](gate.buff.stat);
@@ -37,9 +38,7 @@ export function chooseSide(build: Build, left: Gate, right: Gate, held: WeaponId
   const wantR = right.kind === 'weapon' && right.weapon === build && held !== build;
   if (wantL) return 'left';
   if (wantR) return 'right';
-  if (halfIsPreferred(build, left, held)) return 'left';
-  if (halfIsPreferred(build, right, held)) return 'right';
-  return 'left';
+  return halfRank(build, right, held) > halfRank(build, left, held) ? 'right' : 'left';
 }
 
 function firingHalfWidth(v: DeepReadonly<RunState>): number {

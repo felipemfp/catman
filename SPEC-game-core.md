@@ -415,7 +415,7 @@ Starting values only. balance-sim tunes them, no test pins them, and any change 
 | cat | `widthU` 40 · `heightU` 48 · `maxSpeedUPerTick` 9 · `accelUPerTick2` 1.5 · `hp` 3 · `invulnTicks` 60 · `hitFreezeTicks` 6 |
 | rat | `sizeU` 28 · `spawnYU` −14 · `baseHp` 20 · `hpRampPerM` 0.004 |
 | gates | `everyM` 150 · `heightU` 40 · `spawnYU` −20 · `dyU` 75 · `weaponChance` 0.25 |
-| boss | `everyM` 500 · `clearM` 150 · `warningM` 30 · `sizeU` 120 · `speedUPerTick` 1.2 · `baseHp` 800 (first balance pass: 375) · `hpGrowth` 1.6 · `killFreezeTicks` 12 |
+| boss | `everyM` 500 · `clearM` 150 · `warningM` 30 · `sizeU` 120 · `speedUPerTick` 1.2 · `baseHp` 800 (balance passes: 375, then 390) · `hpGrowth` 1.6 · `killFreezeTicks` 12 |
 | pencil | dmg 10 (first balance pass: 13) · rate 4/s · proj 1 · pierce 2 · range 520 U · speed 14 · spreadVx 0.6 · 6×16 |
 | laser | dps 150 · beams 1 (+`projectilesAdd`) · beamWidthU 14 · beamSpacingU 22 · range 700 U · pierce 0 |
 | yarn | dmg 14 · rate 2.5/s · proj 1 · bounces 3 · range 700 U · speed 10 · spreadVx 0.8 · 12×12 |

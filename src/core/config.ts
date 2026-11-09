@@ -55,7 +55,7 @@ export const config = deepFreeze({
       { fromM: 3000, buffMult: 1.5, buffAdd: 2, debuffMult: 0.7 },
     ],
   },
-  boss: { everyM: 500, clearM: 150, warningM: 30, sizeU: 120, speedUPerTick: 1.2, baseHp: 375, hpGrowth: 1.6, killFreezeTicks: 12, xMarginU: 20 },
+  boss: { everyM: 500, clearM: 150, warningM: 30, sizeU: 120, speedUPerTick: 1.2, baseHp: 390, hpGrowth: 1.6, killFreezeTicks: 12, xMarginU: 20 },
   weapons: {
     pencil: { kind: 'projectile' as const, damage: 13, rate: 4, projectiles: 1, pierce: 2, bounces: 0, rangeU: 520, speedU: 14, spreadVx: 0.6, w: 6, h: 16 },
     laser: { kind: 'beam' as const, dps: 150, beams: 1, beamWidthU: 14, beamSpacingU: 22, rangeU: 700, pierce: 0 },
