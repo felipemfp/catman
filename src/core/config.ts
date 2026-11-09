@@ -42,6 +42,8 @@ export const config = deepFreeze({
   },
   cat: { widthU: 40, heightU: 48, maxSpeedUPerTick: 9, accelUPerTick2: 1.5, hp: 3, invulnTicks: 60, hitFreezeTicks: 6 },
   rat: { sizeU: 28, spawnYU: -14, baseHp: 12, hpRampPerM: 0.0003 },
+  /** Heal pickup: on tuna marks, with `chance`, off the corridor inside a hexagon of `guards` rats. */
+  tuna: { everyM: 200, chance: 0.8, sizeU: 32, guards: 6, guardRadiusU: 50, fullHpScore: 50, xTries: 8 },
   gates: {
     everyM: 150,
     heightU: 40,

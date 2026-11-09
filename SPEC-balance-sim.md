@@ -162,3 +162,7 @@ Results (1000 runs; 3000 runs agree within 0.04):
 **Still failing:**
 - **Laser median distance 1.63× (band 1.33×).** The laser build's lead is the laser bot's DPS-greedy gate picks, not the weapon. Cutting laser dps from 70 to 55 dropped laser-holding boss-0 kills to 0.23 without moving the build's distance, and trimming every gate's multiplier hurt all builds equally. DPS gates beat shape gates (pierce, projectiles, range) on bosses, and bosses are what end the other builds' runs (55–63% of deaths, against 8% for laser). Open for Felipe: give shape buffs boss value, cap DPS stacking, or accept that DPS picks are the strong line and widen the band for it.
 - **Fishbone ratKillRate 0.59 (0.587 on 3000 runs).** It's 0.01 short and didn't move with damage or fire rate; a wide spread from a bot that dodges.
+
+## Tuna (CORE_VERSION 5)
+
+Bots: when hurt, a bot steers to a tuna between 0 and 400 U above the cat line, if that x is safe. 1000-run sweep: about 0.38 heals per 1000 m. Pencil, yarn and fishbone change little, since bosses end their runs. Laser's median goes from 3796 to 8500 m, 25% of laser runs hit the 20-minute cap, and dominance trips (laser > fishbone). Tuna amplifies the open DPS-stacking issue from § Casual retune; it doesn't create it. A rarer tuna (chance 0.5: laser median 6114, dominance still tripped) doesn't fix it, so the designed rate stays until the DPS question is decided.

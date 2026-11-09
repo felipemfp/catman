@@ -1,5 +1,5 @@
 // FNV-1a 32 over RunState in types.ts field order. Numbers are hashed as raw f64 LE bytes.
-import type { Boss, Cat, Gate, GatePair, Horde, Mods, Projectile, Rat, RunState, StatGate } from './types.ts';
+import type { Boss, Cat, Gate, GatePair, Horde, Mods, Projectile, Rat, RunState, StatGate, Tuna } from './types.ts';
 
 type H = { h: number; dv: DataView };
 
@@ -64,6 +64,9 @@ function boss(s: H, b: Boss | null): void {
 function horde(s: H, h: Horde): void {
   num(s, h.segmentK); num(s, h.alive); num(s, h.spawnTick);
 }
+function tuna(s: H, t: Tuna): void {
+  num(s, t.id); num(s, t.x); num(s, t.baseY); num(s, t.y);
+}
 function arr<T>(s: H, a: readonly T[], f: (s: H, v: T) => void): void {
   num(s, a.length);
   for (const v of a) f(s, v);
@@ -78,5 +81,6 @@ export function hashRunState(st: RunState): string {
   boss(s, st.boss); arr(s, st.hordes, horde);
   num(s, st.nextSegmentK); num(s, st.nextProjectileId); num(s, st.bossesSpawned); num(s, st.bossesKilled);
   num(s, st.ratsKilled); num(s, st.score); num(s, st.warnedForBoss);
+  arr(s, st.tunas, tuna); num(s, st.bonusScore);
   return s.h.toString(16).padStart(8, '0');
 }

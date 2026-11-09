@@ -10,7 +10,7 @@ import { type Run, wrapRun, internal } from './run.ts';
 
 export type Scenario = {
   seed: string; distanceM: number; weapon?: WeaponId; mods?: Partial<Mods>; hp?: number; catX?: number; tick?: number;
-  rats?: { x: number; y: number; hp: number }[]; boss?: { x: number; y: number; hp: number }; nextBossHp?: number; gates?: false;
+  rats?: { x: number; y: number; hp: number }[]; tunas?: { x: number; y: number }[]; boss?: { x: number; y: number; hp: number }; nextBossHp?: number; gates?: false;
 };
 
 export function runFromScenario(sc: Scenario): Run {
@@ -34,6 +34,7 @@ export function runFromScenario(sc: Scenario): Run {
   (sc.rats ?? []).forEach((r, i) => {
     s.rats.push({ laneId: 1e9 + i, segmentK: -1, x: r.x, baseY: r.y - s.distanceU, y: r.y, hp: r.hp });
   });
+  (sc.tunas ?? []).forEach((t, i) => s.tunas.push({ id: 2e9 + i, x: t.x, baseY: t.y - s.distanceU, y: t.y }));
   if (sc.boss) s.boss = { index: bosses, x: sc.boss.x, y: sc.boss.y, hp: sc.boss.hp, maxHp: sc.boss.hp };
   return wrapRun(s, { nextBossHp: sc.nextBossHp ?? null, gates: sc.gates !== false });
 }

@@ -16,16 +16,19 @@ export type Projectile = {
 };
 export type Boss = { index: number; x: number; y: number; hp: number; maxHp: number };
 export type Horde = { segmentK: number; alive: number; spawnTick: number };
+export type Tuna = { id: number; x: number; baseY: number; y: number };
 export type RunState = {
   seed: string; tick: number; distanceU: number; freezeTicks: number; over: EndCause | null;
   cat: Cat; rats: Rat[]; gates: GatePair[]; projectiles: Projectile[]; boss: Boss | null; hordes: Horde[];
   nextSegmentK: number; nextProjectileId: number; bossesSpawned: number; bossesKilled: number;
   ratsKilled: number; score: number; warnedForBoss: number; // index of the last boss warned; starts at −1
+  tunas: Tuna[]; bonusScore: number;
 };
-export type SegmentKind = 'empty' | 'gate' | 'column' | 'swarm' | 'wall' | 'boss';
+export type SegmentKind = 'empty' | 'gate' | 'column' | 'swarm' | 'wall' | 'boss' | 'tuna';
 export type SegmentContent = {
   k: number; kind: SegmentKind; corridorX: number;
   rats: { laneId: number; x: number; dy: number; hp: number }[]; gate: GatePair | null; bossX: number | null;
+  tuna: { x: number; dy: number } | null;
 };
 export type DeepReadonly<T> = { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
@@ -40,6 +43,8 @@ export type CoreEvent =
   | { t: 'bossWarning'; haveDps: number; needDps: number; onPace: boolean; etaTicks: number }
   | { t: 'bossSpawned'; index: number; hp: number }
   | { t: 'bossKilled'; index: number }
+  | { t: 'tunaEaten'; hp: number; healed: boolean }
+  | { t: 'tunaMissed' }
   | { t: 'ended'; cause: EndCause; score: number; tick: number };
 
 /** Declaration order of StatKey, used for draws and hashing (never iterate object keys). */

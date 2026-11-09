@@ -1,5 +1,5 @@
 // The 13-step tick (SPEC-game-core § Tick order). Changing the order bumps CORE_VERSION.
-import type { Boss, CoreEvent, DeepReadonly, InputLevel, Mods, Projectile, Rat, RunState, WeaponId } from './types.ts';
+import type { Boss, CoreEvent, DeepReadonly, InputLevel, Mods, Projectile, Rat, RunState, Tuna, WeaponId } from './types.ts';
 import { config } from './config.ts';
 import { overlaps } from './math.ts';
 import { stepCat } from './cat.ts';
@@ -34,6 +34,7 @@ export function createState(seed: string): RunState {
     cat: { x: W.widthU / 2, vx: 0, hp: C.hp, invulnTicks: 0, weapon: 'pencil', mods: defaultMods(), cooldown: 0 },
     rats: [], gates: [], projectiles: [], boss: null, hordes: [],
     nextSegmentK: 0, nextProjectileId: 0, bossesSpawned: 0, bossesKilled: 0, ratsKilled: 0, score: 0, warnedForBoss: -1,
+    tunas: [], bonusScore: 0,
   };
 }
 
@@ -174,8 +175,12 @@ function spawnSegment(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
     s.gates.push(g);
     return;
   }
-  if (seg.rats.length === 0) return;
   const baseOff = config.rat.spawnYU - k * segU;
+  if (seg.tuna !== null) {
+    const baseY = baseOff - seg.tuna.dy;
+    s.tunas.push({ id: k * 64 + 63, x: seg.tuna.x, baseY, y: baseY + s.distanceU });
+  }
+  if (seg.rats.length === 0) return;
   const needSort = s.rats.length > 0 && s.rats[s.rats.length - 1]!.laneId > seg.rats[0]!.laneId;
   for (const r of seg.rats) {
     const baseY = baseOff - r.dy;
@@ -240,6 +245,7 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     s.distanceU += scroll;
     for (const r of s.rats) r.y = r.baseY + s.distanceU;
     for (const g of s.gates) g.y = g.baseY + s.distanceU;
+    for (const t of s.tunas) t.y = t.baseY + s.distanceU;
     if (s.boss !== null) s.boss.y += B.speedUPerTick;
     // 6
     if (cat.invulnTicks === 0) {
@@ -255,6 +261,20 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
           break;
         }
       }
+    }
+    // 6b: tuna, eaten on contact (after the rat hit, so a hit and a heal on one tick net to zero)
+    if (s.tunas.length > 0) {
+      const TS = config.tuna.sizeU;
+      const keep: Tuna[] = [];
+      for (const t of s.tunas) {
+        if (cat.hp > 0 && overlaps(cat.x, W.catLineY, C.widthU, C.heightU, t.x, t.y, TS, TS)) {
+          const healed = cat.hp < C.hp;
+          if (healed) cat.hp += 1;
+          else s.bonusScore += config.tuna.fullHpScore;
+          ev.push({ t: 'tunaEaten', hp: cat.hp, healed });
+        } else keep.push(t);
+      }
+      if (keep.length !== s.tunas.length) s.tunas = keep;
     }
     // 7
     for (const g of s.gates) {
@@ -322,8 +342,15 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     if (s.gates.length > 0 && s.gates.some((g) => g.y - config.gates.heightU / 2 > W.heightU)) {
       s.gates = s.gates.filter((g) => !(g.y - config.gates.heightU / 2 > W.heightU));
     }
+    if (s.tunas.length > 0 && s.tunas.some((t) => t.y - config.tuna.sizeU / 2 > W.heightU)) {
+      s.tunas = s.tunas.filter((t) => {
+        const gone = t.y - config.tuna.sizeU / 2 > W.heightU;
+        if (gone) ev.push({ t: 'tunaMissed' });
+        return !gone;
+      });
+    }
     // 12
-    s.score = Math.floor(s.distanceU / 10) + s.ratsKilled + 250 * s.bossesKilled;
+    s.score = Math.floor(s.distanceU / 10) + s.ratsKilled + 250 * s.bossesKilled + s.bonusScore;
     if (!step.probe) bossWarning(s, opts, ev);
   }
   // 13

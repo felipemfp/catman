@@ -507,3 +507,10 @@ The floor applies to the slower scenario.
 - **Rats ride the lane rigidly** (they no longer walk). That makes lane geometry exact and gates never guarded, at the cost of rats feeling less alive. If the playtest says they feel static, a walk animation in the client costs nothing; real walking would reopen F2 and F15.
 - Boss with no attacks: revisit after the playtest.
 - **Ghost size vs run length.** `maxInputBytes` (32 KB) holds 4.5 min if the level changes every tick (2 B per run), or longer than the 20-min `maxTicks` at one change per 8 ticks (≈36 min of capacity; script-checked). Real touch play sits somewhere in between and is unmeasured. Runs over the cap can't be shared as ghosts; the client says so (SPEC-client C7). Measure real log sizes in the playtest before deciding whether to raise the cap (that's Ask first: wire format).
+
+## Tuna (CORE_VERSION 5)
+
+An occasional heal, placed so you have to fight for it.
+- **Where:** on tuna marks (`dM % tuna.everyM == 0`), only when the segment would otherwise hold a rat formation (not a boss, clear zone, warm-up, gate or gate neighbour). The roll uses its own RNG, `seed:tuna:k`, with `tuna.chance`. That gives 1–3 tunas per 1000 m (asserted).
+- **Layout:** the tuna sits at the middle of the band. Six guard rats sit on a hexagon of radius `guardRadiusU` around it; the unit vectors are literals, because `Math.cos`/`sin` aren't bit-identical across engines. The whole ring keeps `corridorHalfU + ratSize/2` away from the corridor centre, so the corridor guarantee holds and the safe path never leads to the tuna. If no x fits after `xTries`, the segment falls back to a normal formation. Guards are ordinary rats in the segment's horde. The tuna's id is `k·64 + 63`.
+- **Step:** tunas scroll like rats (step 5). In step 6b, after the rat-contact check, overlapping the cat eats one: +1 hp if below `cat.hp`, otherwise `+fullHpScore` to `bonusScore`, plus a `tunaEaten { hp, healed }` event. Shots pass through tunas. A tuna whose top edge leaves the screen is removed with `tunaMissed` (step 11). The score adds `bonusScore`. `tunas` and `bonusScore` are hashed after `warnedForBoss`.

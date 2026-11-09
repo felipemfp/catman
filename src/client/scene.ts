@@ -20,6 +20,7 @@ const CAT_Y = config.world.catLineY;
 const COL = {
   bg: 0x14121c, lane: 0x1d1a29, cat: 0xf4ead5, ghost: 0x8fd3ff, rat: 0xb9a99a, ratEye: 0xff5a5a, boss: 0xd8c3ad, crown: 0xffd23f,
   pencil: 0xffd23f, laser: 0x4ff2ff, yarn: 0xff5577, fish: 0xc8ccd4, buff: 0x2fbf71, debuff: 0xe0464b, weapon: 0x7a5cff, text: '#f4ead5',
+  tuna: 0x5b8def, tunaBelly: 0xd6e4ff, tunaGlow: 0x2fbf71,
 };
 const MY_GHOSTS = 'catman.myGhosts';
 
@@ -340,6 +341,10 @@ export class GameScene extends Phaser.Scene {
           if (!this.reducedMotion) this.cameras.main.shake(300, 10 / W);
           break;
         case 'gateTaken': this.sfx.play('gate'); break;
+        case 'tunaEaten':
+          this.sfx.play('heal');
+          if (this.run) this.spawnText(view(this.run).cat.x, CAT_Y - 40, e.healed ? '+1 ♥' : `+${config.tuna.fullHpScore}`);
+          break;
         case 'bossWarning': {
           this.sfx.play('warning');
           const verdict = e.onPace ? 'ON PACE' : 'TOO WEAK';
@@ -356,11 +361,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnDamage(x: number, y: number, amount: number): void {
+    this.spawnText(x, y, String(Math.round(amount)));
+  }
+
+  spawnText(x: number, y: number, s: string): void {
     const d = this.damageNums.find((n) => n.life <= 0);
     if (!d) return; // pool full: drop the number
     d.life = 400;
     d.vy = -0.06;
-    d.text.setText(String(Math.round(amount))).setPosition(x, y).setVisible(true).setAlpha(1);
+    d.text.setText(s).setPosition(x, y).setVisible(true).setAlpha(1);
   }
 
   spawnPuff(x: number, y: number): void {
@@ -405,6 +414,7 @@ export class GameScene extends Phaser.Scene {
     const off = v.distanceU % 120;
     for (let y = -120 + off; y < H; y += 120) g.fillRect(0, y, W, 60);
     this.drawGates(g, v);
+    for (const t of v.tunas) this.drawTuna(g, t.x, t.y);
     for (const r of v.rats) this.drawRat(g, r.x, r.y, 1);
     if (v.boss) this.drawBoss(g, v.boss.x, v.boss.y, v.boss.hp / v.boss.maxHp);
     this.drawShots(g, v);
@@ -516,6 +526,17 @@ export class GameScene extends Phaser.Scene {
     // tail
     g.lineBetween(x, y + 9, x + 10 - lean, y + 5);
     g.lineBetween(x + 10 - lean, y + 5, x + 15 - lean, y - 4);
+  }
+
+  /** A plump tuna with a soft pulse, so it reads as a pickup, not a threat. */
+  drawTuna(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+    const pulse = this.reducedMotion ? 1 : 1 + 0.08 * Math.sin(this.frame / 6);
+    const r = (config.tuna.sizeU / 2) * pulse;
+    g.fillStyle(COL.tunaGlow, 0.25).fillCircle(x, y, r + 8);
+    g.fillStyle(COL.tuna, 1).fillEllipse(x, y, r * 2, r * 1.2);
+    g.fillTriangle(x + r * 0.8, y, x + r * 1.5, y - r * 0.6, x + r * 1.5, y + r * 0.6);
+    g.fillStyle(COL.tunaBelly, 1).fillEllipse(x - r * 0.1, y + r * 0.2, r * 1.4, r * 0.45);
+    g.fillStyle(0x000000, 1).fillCircle(x - r * 0.55, y - r * 0.15, 2);
   }
 
   drawRat(g: Phaser.GameObjects.Graphics, x: number, y: number, s: number): void {

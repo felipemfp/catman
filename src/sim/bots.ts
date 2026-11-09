@@ -86,6 +86,12 @@ export function createBot(build: Build): Bot {
     const scroll = scrollFor(v);
     const half = firingHalfWidth(v);
     const range = effRange(cat.weapon, cat.mods);
+    // hurt: go for an approaching tuna when the path is safe (SPEC-balance-sim § Bots)
+    if (cat.hp < CAT.hp) {
+      for (const t of v.tunas) {
+        if (t.y < W.catLineY && t.y > W.catLineY - 400 && safe(v, t.x, scroll)) return levelToward(cat, t.x);
+      }
+    }
     let best = -1;
     let bestScore = -1;
     for (const x of CANDIDATES) {
