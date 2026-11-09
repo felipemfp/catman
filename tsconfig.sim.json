@@ -21,6 +21,7 @@
   "include": [
     "src/sim/**/*.ts",
     "tools/**/*.ts",
-    "*.config.ts"
+    "*.config.ts",
+    "src/core/vitest-context.d.ts"
   ]
 }
