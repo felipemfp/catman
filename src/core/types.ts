@@ -8,7 +8,8 @@ export type StatGate = { kind: 'stat'; buff: { stat: StatKey; value: number }; d
 export type WeaponGate = { kind: 'weapon'; weapon: WeaponId; fallback: StatGate };
 export type Gate = StatGate | WeaponGate;
 export type Cat = { x: number; vx: number; hp: number; invulnTicks: number; weapon: WeaponId; mods: Mods; cooldown: number };
-export type Rat = { laneId: number; segmentK: number; x: number; baseY: number; y: number; hp: number };
+/** guard: part of a gate guard block, which holds its place in front of the gate (no homing, no charge). */
+export type Rat = { laneId: number; segmentK: number; x: number; baseY: number; y: number; hp: number; guard: boolean };
 export type GatePair = { laneId: number; baseY: number; y: number; left: Gate; right: Gate; resolved: boolean };
 export type Projectile = {
   id: number; weapon: Exclude<WeaponId, 'laser'>; x: number; y: number; vx: number; vy: number;

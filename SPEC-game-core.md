@@ -597,3 +597,23 @@ Changes to existing tests:
 - T-wall-rest needs ≥ 1 gate per seed: boss 0 can land at 450 m and clear the 300 m gate.
 
 **Distinct gate halves (CORE_VERSION 10, same PR).** Felipe: "sometimes both show the same". The two halves used to be drawn independently, and 8.8% of pairs were identical (445/5037); 12.7% shared a buff stat. The second stat half drawn (or both, next to a weapon half's fallback) now draws its buff from `STAT_KEYS` minus the other half's buff, so a pair always offers two different buffs. Tested over 400 seeds × 4 km in variants.test.ts. The sweep moved slightly: the old dominance failure now reads laser > yarn and fishbone (was laser > pencil). The boss targets still pass (fight death share 0.456).
+
+## Gate guards at the gate (CORE_VERSION 11)
+
+Felipe: "weapon gates still look unprotected, so there's no challenge to swap to an OP weapon like laser".
+- **Measured cause.** The guard sat in segment k − 2, which is 500 U in front of its gate. When the gate was 300 U from the cat, 0 guard rats were left near it: they had already passed the cat. Past 500 m they also homed toward the cat and away from the gate.
+- **New placement.** The guard is a block in segment k − 1, right in front of the better half's box.
+  - Size: n = min(cap, ratsPerValue × value gap), with ratsPerValue 6. That is 12 (two rows) for laser against a stat gate and 6 for yarn or fishbone.
+  - Layout: rows of `perRow` 6, at `firstRowU` 34 U below the gate (just under the box) and then every `rowSpacingU` 50 U.
+  - x positions are box centre + (i − 2.5) × 34, which is wider than the 160 U take window. A cold critic found that a 4-wide block let a cat wait at its edge and slide in after the front row passed. With 6 wide and the front row at 34 U, the gate crosses 1–2 ticks after that row clears, but the slide needs about 39 U. guard.test.ts tries every wait position and steer-in moment; the old layout fails it.
+  - dy is `rat.spawnYU − gates.spawnYU + gates.dyU + segU − offset`. That can exceed `bandU`; the band limit only applies to formations.
+- **Guards stay put.** `Rat.guard` (hashed after `hp`) exempts guard rats from homing and charge, so the block stays with the gate.
+- **Corridor.** Before `homing.startM`, three kinds of slot stay open: those in the corridor of segment k − 1, those in the corridor of segment k (the rows sit near the gate, where the follower already steers to k), and those that would hit a cat resting against a wall. So F3 and F15 still hold, and T-corridor and T-wall-rest pass in full mode. After `homing.startM` the block is solid; the corridor guarantee already ended there in v7.
+- **Buffers.** Segment k + 1 stays empty. Segment k − 1 is empty except for the block; the worse half stays free.
+- **Tests (guard.test.ts):**
+  - placement, size and the solid-after-startM rule
+  - the box window being fully covered
+  - in play: the whole block is still in front of the box when the gate is 300 U away, with no sideways drift
+  - a cat that holds the box without shooting gets hit before it takes the gate
+- **lane.test.ts.** The no-rat-in-corridor check skips guard segments past `homing.startM`.
+- **Sweep (1000 runs).** Medians drop about 5–7%, since a guarded weapon now costs something. Boss fights cause 0.423 of deaths, and every variant line still passes. The same four older lines still fail.

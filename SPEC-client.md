@@ -212,3 +212,12 @@ There is no "force death" hook. A death that isn't in the input log would produc
 - Each variant plays its own sound at `bossIncoming` (`horde`, `frenzy`, `twins`; plain plays `warning`). `bossWarning` still plays `warning`.
 - Twins are drawn as two bosses, each with its own HP bar.
 - `ui().bossIcons` exposes the line (null when hidden). U-boss-icons tests the mapping, and E2E 13 checks it during the golden replay's boss 0 and that it is gone on the death screen.
+
+## Frenzy look and firing sounds (CORE_VERSION 11)
+
+- **Frenzy rats** (`segmentK === FRENZY_K`, exported from core) are drawn purple (`#b26bff`), with three fading dots trailing above them, since they run down the screen.
+- **Firing sounds.** Before this change no firing sound ever played: `'shoot'` existed but nothing called it. Each weapon now has its own voice: pencil click, laser hum, yarn "thwup", fishbone chirp.
+  - `fireSfx(weapon, prevId, nextId, beamOn)` picks the voice. A projectile weapon plays when `nextProjectileId` advanced during the step. The laser plays while it is on (not frozen, run not over).
+  - Each voice is throttled by `MIN_GAP_S` (0.08–0.18 s).
+  - The scene keeps `lastShotId` between steps and resets it on each new run.
+  - U-fire-sfx tests the rule.

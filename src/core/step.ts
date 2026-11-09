@@ -77,12 +77,12 @@ function homeRats(s: RunState, scroll: number): void {
   if (frac === 0 || s.rats.length === 0) return;
   // charge: a constant extra forward speed for every rat (moving baseY keeps y = baseY + distanceU true)
   const charge = chargeFrac(dM) * scroll;
-  if (charge > 0) for (const r of s.rats) { r.baseY += charge; r.y += charge; }
+  if (charge > 0) for (const r of s.rats) if (!r.guard) { r.baseY += charge; r.y += charge; }
   const step = frac * scroll;
   const lockY = W.catLineY - config.rat.homing.lockU;
   const cx = s.cat.x;
   for (const r of s.rats) {
-    if (r.y > lockY) continue;
+    if (r.guard || r.y > lockY) continue;
     const d = cx - r.x;
     r.x += d > 0 ? Math.min(step, d) : Math.max(-step, d);
   }
@@ -113,8 +113,8 @@ export function variantHpMult(variant: number): number {
 const HORDE_ID = 5e8;
 const FRENZY_ID = 6e8;
 /** Wave rats carry these segmentK values (no lane segment, no horde bookkeeping). */
-const HORDE_K = -2;
-const FRENZY_K = -3;
+export const HORDE_K = -2;
+export const FRENZY_K = -3;
 
 function waveEvery(s: RunState, f: Fight, every: number, min: number): number {
   let hp = 0;
@@ -135,12 +135,12 @@ function spawnWave(s: RunState, f: Fight, kind: 'horde' | 'frenzy'): void {
     const gap = randInt(rng, L.wallSlots - B.horde.gapSlots + 1);
     for (let i = 0; i < L.wallSlots; i++) {
       if (i >= gap && i < gap + B.horde.gapSlots) continue;
-      s.rats.push({ laneId: HORDE_ID + s.nextWaveId++, segmentK: HORDE_K, x: L.wallSlotOriginU + L.wallSlotSpacingU * i, baseY: y - base, y, hp });
+      s.rats.push({ laneId: HORDE_ID + s.nextWaveId++, segmentK: HORDE_K, x: L.wallSlotOriginU + L.wallSlotSpacingU * i, baseY: y - base, y, hp, guard: false });
     }
   } else {
     for (let i = 0; i < B.frenzy.rats; i++) {
       const x = randReal(rng, RAT / 2, W.widthU - RAT / 2);
-      s.rats.push({ laneId: FRENZY_ID + s.nextWaveId++, segmentK: FRENZY_K, x, baseY: y - base - i * 40, y: y - i * 40, hp });
+      s.rats.push({ laneId: FRENZY_ID + s.nextWaveId++, segmentK: FRENZY_K, x, baseY: y - base - i * 40, y: y - i * 40, hp, guard: false });
     }
   }
   s.rats.sort((a, b) => a.laneId - b.laneId);
@@ -341,7 +341,7 @@ function spawnSegment(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
   const needSort = s.rats.length > 0 && s.rats[s.rats.length - 1]!.laneId > seg.rats[0]!.laneId;
   for (const r of seg.rats) {
     const baseY = baseOff - r.dy;
-    s.rats.push({ laneId: r.laneId, segmentK: k, x: r.x, baseY, y: baseY + s.distanceU, hp: r.hp });
+    s.rats.push({ laneId: r.laneId, segmentK: k, x: r.x, baseY, y: baseY + s.distanceU, hp: r.hp, guard: seg.kind === 'guard' });
   }
   if (needSort) s.rats.sort((a, b) => a.laneId - b.laneId);
   s.hordes.push({ segmentK: k, alive: seg.rats.length, spawnTick: s.tick });

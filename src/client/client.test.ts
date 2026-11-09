@@ -8,6 +8,7 @@ import { fetchGhost, verifyBody, RETRY_AT_S, type FetchDeps } from './ghostfetch
 import { bossIcons, gateLabel, iconGlyph } from './labels.ts';
 import { createGhostCheck } from './ghostcheck.ts';
 import { formatScore } from './format.ts';
+import { fireSfx, MIN_GAP_S } from './sfx.ts';
 import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS, CORE_VERSION, encodeInputLog, toBase64 } from '../core/index.ts';
 
 describe('U-url', () => {
@@ -138,6 +139,18 @@ describe('U-boss-icons (CORE_VERSION 10)', () => {
     const all = [0, 1, 2, 3, 4, 5, 6].map(bossIcons);
     expect(new Set(all).size).toBe(all.length);
     for (const s of all) expect(s).not.toMatch(/[A-Za-z]/);
+  });
+});
+
+describe('U-fire-sfx (CORE_VERSION 11)', () => {
+  it('each weapon has its own throttled firing sound; projectile weapons play only when a shot spawned; the laser while on', () => {
+    expect(fireSfx('pencil', 4, 5, true)).toBe('pencil');
+    expect(fireSfx('yarn', 4, 5, true)).toBe('yarn');
+    expect(fireSfx('fishbone', 4, 9, true)).toBe('fishbone');
+    expect(fireSfx('pencil', 5, 5, true)).toBeNull();
+    expect(fireSfx('laser', 5, 5, true)).toBe('laser');
+    expect(fireSfx('laser', 5, 5, false)).toBeNull();
+    for (const w of ['pencil', 'laser', 'yarn', 'fishbone'] as const) expect(MIN_GAP_S[w]).toBeGreaterThan(0);
   });
 });
 

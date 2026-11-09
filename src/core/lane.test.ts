@@ -130,6 +130,8 @@ describe('T-corridor (F3)', () => {
         const s = generateSegment(seed, k);
         expect(Math.abs(s.corridorX - prev)).toBeLessThanOrEqual(maxShift + 1e-9);
         prev = s.corridorX;
+        // past homing.startM a guard block is solid on purpose (CORE_VERSION 11): the corridor guarantee ends there
+        if (s.kind === 'guard' && k * config.lane.segmentM >= config.rat.homing.startM) continue;
         for (const r of s.rats) expect(Math.abs(r.x - s.corridorX)).toBeGreaterThanOrEqual(corridorHalfU + config.rat.sizeU / 2);
       }
     }
