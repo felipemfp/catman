@@ -56,8 +56,8 @@ export const config = deepFreeze({
     spawnYU: -20,
     dyU: 75,
     weaponChance: 0.25,
-    /** Uneven pairs: ratsPerValue × value gap (capped) guard the better half, two segments before the gate. */
-    guard: { weaponValue: { pencil: 1, laser: 3, yarn: 2, fishbone: 2 }, statValue: 1, ratsPerValue: 4, cap: 12, rows: 2, rowSpacingU: 60, slotSpacingU: 34 },
+    /** Uneven pairs: ratsPerValue × value gap (capped) rats in rows of perRow, right in front of the better box (firstRowU below the gate, then every rowSpacingU). They neither home nor charge. */
+    guard: { weaponValue: { pencil: 1, laser: 3, yarn: 2, fishbone: 2 }, statValue: 1, ratsPerValue: 6, cap: 12, perRow: 6, firstRowU: 34, rowSpacingU: 50, slotSpacingU: 34 },
     /** Chosen by the gate mark's distance; first tier whose fromM ≤ d, scanning from the end. */
     tiers: [
       { fromM: 0, buffMult: 1.3, buffAdd: 1, debuffMult: 0.9 },

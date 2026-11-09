@@ -192,30 +192,44 @@ export function gateValue(g: Gate): number {
   return g.kind === 'weapon' ? G.weaponValue[g.weapon] : G.statValue;
 }
 
-/** Guard horde for the gate pair two segments ahead: rows across its better half, skipping the corridor. */
+/** dy that puts a rat of segment k − 1 exactly `offU` below the gate pair of segment k (both scroll together). */
+const GUARD_DY0 = config.rat.spawnYU - config.gates.spawnYU + config.gates.dyU + segU;
+
+/**
+ * Guard block for the gate pair one segment ahead (SPEC-game-core § Gate guards at the gate, CORE_VERSION 11):
+ * rows of perRow rats right in front of the better half's box, so taking it means shooting through them.
+ * Before homing starts the corridor's slots stay open (F3 corridor guarantee); after, the block is solid.
+ */
 function placeGuard(seed: string, k: number, cx: number, out: SegmentContent): boolean {
-  if (!spawnsGate(seed, k + 2)) return false;
-  const pair = generateSegment(seed, k + 2).gate!;
+  if (!spawnsGate(seed, k + 1)) return false;
+  const pair = generateSegment(seed, k + 1).gate!;
   const diff = gateValue(pair.left) - gateValue(pair.right);
   if (diff === 0) return false;
   const G = config.gates.guard;
-  const size = config.rat.sizeU;
-  const half = config.world.widthU / 2;
-  const x0 = diff > 0 ? 0 : half;
+  const W = config.world.widthU;
+  const boxX = diff > 0 ? W / 4 : (3 * W) / 4;
   const n = Math.min(G.cap, G.ratsPerValue * Math.abs(diff));
+  const keepCorridor = k * L.segmentM < config.rat.homing.startM;
+  const nextCx = corridorX(seed, k + 1);
   const hp = ratHpAt(k * L.segmentM);
   const rats: SegmentContent['rats'] = [];
-  for (let row = 0; row < G.rows && rats.length < n; row++) {
-    const dy = 20 + row * G.rowSpacingU;
-    for (let x = x0 + size / 2 + 3; x + size / 2 <= x0 + half && rats.length < n; x += G.slotSpacingU) {
-      if (inCorridor(x, cx)) continue;
-      rats.push({ laneId: k * 64 + rats.length + 1, x, dy, hp });
-    }
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / G.perRow);
+    const x = boxX + ((i % G.perRow) - (G.perRow - 1) / 2) * G.slotSpacingU;
+    // the rows sit near the gate, where the corridor is already segment k + 1's: keep both corridors open
+    if (keepCorridor && (inCorridor(x, cx) || inCorridor(x, nextCx) || atWall(x))) continue;
+    rats.push({ laneId: k * 64 + rats.length + 1, x, dy: GUARD_DY0 - (G.firstRowU + row * G.rowSpacingU), hp });
   }
   if (rats.length === 0) return false;
   out.kind = 'guard';
   out.rats = rats;
   return true;
+}
+
+/** A rat here would hit a cat resting against a wall (F15: waiting at the wall through a gate is safe before homing). */
+function atWall(x: number): boolean {
+  const clear = config.cat.widthU + config.rat.sizeU / 2;
+  return x < clear || x > config.world.widthU - clear;
 }
 
 function inCorridor(x: number, cx: number): boolean {
@@ -242,8 +256,11 @@ export function generateSegment(seed: string, k: number): SegmentContent {
     out.gate = drawGatePair(rng, k);
     return out;
   }
-  if (spawnsGate(seed, k - 1) || spawnsGate(seed, k + 1)) return out;
-  if (placeGuard(seed, k, cx, out)) return out;
+  if (spawnsGate(seed, k - 1)) return out;
+  if (spawnsGate(seed, k + 1)) {
+    placeGuard(seed, k, cx, out); // the buffer before a gate stays empty except for its guard block
+    return out;
+  }
   if (isTunaMark(k) && placeTuna(seed, k, cx, out)) return out;
 
   const emptyChance = Math.max(L.emptyFloor, L.emptyStart - dM / L.emptyFallM);

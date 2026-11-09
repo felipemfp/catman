@@ -1,7 +1,7 @@
 // The one Phaser scene. All rules live in core: this file only samples input, calls step(), and draws view().
 import * as Phaser from 'phaser';
 import {
-  BOSS_HORDE, BOSS_TWINS, CORE_VERSION, bossHpFor, bossVariant, variantHpMult, catTopY, config, createRecorder, createRun, hashState, simulateBossFight, step, toBase64,
+  BOSS_HORDE, BOSS_TWINS, FRENZY_K, CORE_VERSION, bossHpFor, bossVariant, variantHpMult, catTopY, config, createRecorder, createRun, hashState, simulateBossFight, step, toBase64,
   validateGhostPayload, view, type CoreEvent, type DeepReadonly, type EndCause, type GatePair, type InputLevel, type Run,
   type RunState, type WeaponId,
 } from '../core/index.ts';
@@ -12,14 +12,14 @@ import { formatScore } from './format.ts';
 import { createGhostCheck, ghostScoreAt, type GhostTrack } from './ghostcheck.ts';
 import { fetchGhost, verifyBody } from './ghostfetch.ts';
 import { searchFor, seedFromBytes, shareLink } from './url.ts';
-import { createSfx } from './sfx.ts';
+import { createSfx, fireSfx } from './sfx.ts';
 import { createCamera, parseView, VIEW_KEY, type Camera } from './camera.ts';
 
 const W = config.world.widthU;
 const H = config.world.heightU;
 const CAT_Y = config.world.catLineY;
 const COL = {
-  bg: 0x14121c, lane: 0x1d1a29, cat: 0xf4ead5, ghost: 0x8fd3ff, rat: 0xb9a99a, ratEye: 0xff5a5a, boss: 0xd8c3ad, crown: 0xffd23f,
+  bg: 0x14121c, lane: 0x1d1a29, cat: 0xf4ead5, ghost: 0x8fd3ff, rat: 0xb9a99a, frenzy: 0xb26bff, ratEye: 0xff5a5a, boss: 0xd8c3ad, crown: 0xffd23f,
   pencil: 0xffd23f, laser: 0x4ff2ff, yarn: 0xff5577, fish: 0xc8ccd4, buff: 0x2fbf71, debuff: 0xe0464b, weapon: 0x7a5cff, text: '#f4ead5',
   tuna: 0x5b8def, tunaBelly: 0xd6e4ff, tunaGlow: 0x2fbf71,
   laneEdge: 0x3a3452,
@@ -86,6 +86,8 @@ export class GameScene extends Phaser.Scene {
   hud!: Phaser.GameObjects.Text;
   hudRight!: Phaser.GameObjects.Text;
   incoming!: Phaser.GameObjects.Text;
+  /** nextProjectileId after the last step, to hear new shots. */
+  lastShotId = 0;
   gateTexts: Phaser.GameObjects.Text[] = [];
   damageNums: DamageNum[] = [];
   puffs: Puff[] = [];
@@ -211,6 +213,7 @@ export class GameScene extends Phaser.Scene {
   /** Play / Again: a fresh run on the current seed, attaching a verified ghost if there is one. */
   startRun(): void {
     this.run = createRun(this.seed);
+    this.lastShotId = 0;
     this.recorder = createRecorder();
     this.acc = 0;
     this.ended = null;
@@ -335,8 +338,13 @@ export class GameScene extends Phaser.Scene {
           if (pl.i >= pl.levels.length) { this.finishScripted(); break; }
           level = pl.levels[pl.i++]!;
         } else level = this.sampleInput(view(run));
+
         const ev = step(run, level);
         this.recorder.push(level);
+        const after = view(run);
+        const fire = fireSfx(after.cat.weapon, this.lastShotId, after.nextProjectileId, after.freezeTicks === 0 && after.over === null);
+        this.lastShotId = after.nextProjectileId;
+        if (fire) this.sfx.play(fire);
         this.juice(ev);
         const e = ev.find((x) => x.t === 'ended');
         if (e && e.t === 'ended') {
@@ -455,7 +463,7 @@ export class GameScene extends Phaser.Scene {
     // far to near, so nearer things overlap farther ones
     const sprites: { y: number; draw: () => void }[] = [];
     for (const t of v.tunas) sprites.push({ y: t.y, draw: () => this.at(g, t.x, t.y, () => this.drawTuna(g, 0, 0)) });
-    for (const r of v.rats) sprites.push({ y: r.y, draw: () => this.at(g, r.x, r.y, () => this.drawRat(g, 0, 0, 1)) });
+    for (const r of v.rats) sprites.push({ y: r.y, draw: () => this.at(g, r.x, r.y, () => this.drawRat(g, 0, 0, 1, r.segmentK === FRENZY_K)) });
     for (const b of [v.boss, v.twin]) if (b) sprites.push({ y: b.y, draw: () => this.at(g, b.x, b.y, () => this.drawBoss(g, 0, 0, b.hp / b.maxHp)) });
     sprites.sort((a, b) => a.y - b.y);
     for (const s of sprites) s.draw();
@@ -594,10 +602,15 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x000000, 1).fillCircle(x - r * 0.55, y - r * 0.15, 2);
   }
 
-  drawRat(g: Phaser.GameObjects.Graphics, x: number, y: number, s: number): void {
-    g.lineStyle(2.5 * s, COL.rat, 1);
+  /** frenzy: purple, with a fading trail above it (it runs down the screen), so fast chasers read at a glance. */
+  drawRat(g: Phaser.GameObjects.Graphics, x: number, y: number, s: number, frenzy = false): void {
+    const col = frenzy ? COL.frenzy : COL.rat;
+    if (frenzy) {
+      for (let i = 1; i <= 3; i++) g.fillStyle(COL.frenzy, 0.35 - i * 0.09).fillCircle(x, y - 6 * s - i * 11 * s, (6 - i) * s);
+    }
+    g.lineStyle(2.5 * s, col, 1);
     g.strokeCircle(x, y - 6 * s, 6 * s);
-    g.fillStyle(COL.rat, 1).fillCircle(x - 6 * s, y - 12 * s, 3.5 * s).fillCircle(x + 6 * s, y - 12 * s, 3.5 * s);
+    g.fillStyle(col, 1).fillCircle(x - 6 * s, y - 12 * s, 3.5 * s).fillCircle(x + 6 * s, y - 12 * s, 3.5 * s);
     g.fillStyle(COL.ratEye, 1).fillCircle(x - 2 * s, y - 7 * s, 1.2 * s).fillCircle(x + 2 * s, y - 7 * s, 1.2 * s);
     g.lineBetween(x, y, x, y + 7 * s);
     g.lineBetween(x, y + 3 * s, x - 7 * s, y + 7 * s);

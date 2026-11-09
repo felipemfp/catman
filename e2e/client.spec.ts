@@ -217,14 +217,14 @@ test('E2E 12 social: description, Open Graph and Twitter tags; og.png is a 1200Ã
 test('E2E 13 boss telegraph: the variant emoji shows from bossIncoming through the fight, and clears on death', async ({ page }) => {
   await page.goto('/?s=golden1');
   await hooks(page);
-  // the golden replay telegraphs boss 0 (plain) at tick 1229, spawns it at 1746, and dies to it at 2155
+  // the golden replay telegraphs boss 0 (plain) at tick 1229, spawns it at 1752, and dies to it at 2166
   const done = page.evaluate((l) => window.__catman.playLog(l), golden.levels);
   await page.waitForFunction(() => window.__catman.tick() >= 900);
   const early = await page.evaluate(() => ({ tick: window.__catman.tick(), icons: window.__catman.ui().bossIcons }));
   if (early.tick < 1229) expect(early.icons).toBeNull();
   await page.waitForFunction(() => window.__catman.tick() >= 1800);
   const fight = await page.evaluate(() => ({ tick: window.__catman.tick(), icons: window.__catman.ui().bossIcons }));
-  expect(fight.tick).toBeLessThan(2155);
+  expect(fight.tick).toBeLessThan(2166);
   expect(fight.icons).toBe('ðŸ‘‘');
   await done;
   await page.waitForFunction(() => window.__catman.ui().screen === 'death');

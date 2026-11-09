@@ -1,9 +1,14 @@
 // Synthesised sounds, no audio files. The context unlocks on first input.
-export type SfxName = 'shoot' | 'hit' | 'gate' | 'warning' | 'death' | 'heal' | 'horde' | 'frenzy' | 'twins';
+import type { WeaponId } from '../core/index.ts';
+export type SfxName = 'pencil' | 'laser' | 'yarn' | 'fishbone' | 'hit' | 'gate' | 'warning' | 'death' | 'heal' | 'horde' | 'frenzy' | 'twins';
 
 type Voice = { type: OscillatorType; from: number; to: number; ms: number; gain: number };
 const VOICES: Record<SfxName, Voice> = {
-  shoot: { type: 'square', from: 880, to: 660, ms: 40, gain: 0.03 },
+  // firing: one voice per weapon, each throttled by MIN_GAP_S so fast fire rates stay a texture, not a buzz
+  pencil: { type: 'square', from: 1400, to: 900, ms: 35, gain: 0.025 },
+  laser: { type: 'sawtooth', from: 170, to: 190, ms: 200, gain: 0.03 },
+  yarn: { type: 'sine', from: 260, to: 520, ms: 90, gain: 0.06 },
+  fishbone: { type: 'triangle', from: 900, to: 350, ms: 60, gain: 0.04 },
   hit: { type: 'sawtooth', from: 220, to: 80, ms: 160, gain: 0.12 },
   gate: { type: 'triangle', from: 520, to: 1040, ms: 180, gain: 0.1 },
   warning: { type: 'square', from: 330, to: 330, ms: 400, gain: 0.07 },
@@ -16,6 +21,15 @@ const VOICES: Record<SfxName, Voice> = {
 };
 const MUTE_KEY = 'catman.muted';
 
+/** Minimum seconds between two plays of a firing voice. */
+export const MIN_GAP_S: Partial<Record<SfxName, number>> = { pencil: 0.08, laser: 0.18, yarn: 0.12, fishbone: 0.12 };
+
+/** The firing sound for this tick, or null: a projectile weapon that spawned shots, or a laser that is on. */
+export function fireSfx(weapon: WeaponId, prevProjectileId: number, nextProjectileId: number, beamOn: boolean): SfxName | null {
+  if (weapon === 'laser') return beamOn ? 'laser' : null;
+  return nextProjectileId > prevProjectileId ? weapon : null;
+}
+
 export function createSfx() {
   let ctx: AudioContext | null = null;
   let muted = true;
@@ -24,7 +38,7 @@ export function createSfx() {
   } catch {
     muted = true; // storage throws: default to muted
   }
-  let lastShoot = 0;
+  const last: Partial<Record<SfxName, number>> = {};
   return {
     unlock(): void {
       if (ctx) return;
@@ -43,9 +57,10 @@ export function createSfx() {
     play(name: SfxName): void {
       if (muted || !ctx) return;
       const now = ctx.currentTime;
-      if (name === 'shoot') {
-        if (now - lastShoot < 0.08) return;
-        lastShoot = now;
+      const gap = MIN_GAP_S[name];
+      if (gap !== undefined) {
+        if (now - (last[name] ?? -Infinity) < gap) return;
+        last[name] = now;
       }
       const v = VOICES[name];
       const osc = ctx.createOscillator();
