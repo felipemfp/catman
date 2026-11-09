@@ -43,6 +43,29 @@ function moveBoss(b: Boss, catX: number): void {
   b.missTicks += 1;
 }
 
+/** Sideways homing per unit scrolled at distance dM (SPEC-game-core § Homing rats). */
+export function homingFrac(dM: number): number {
+  const H = config.rat.homing;
+  return Math.min(H.maxFrac, Math.max(0, (dM - H.startM) * H.fracPerM));
+}
+
+/**
+ * Step 5, after scrolling: rats above the lock line drift toward the cat by at most frac × scroll, never past it.
+ * Scaled by scroll, so a frozen or stopped lane (boss fight) leaves rat x alone and the lane stays distance-driven.
+ */
+function homeRats(s: RunState, scroll: number): void {
+  const frac = homingFrac(s.distanceU / 10);
+  if (frac === 0 || s.rats.length === 0) return;
+  const step = frac * scroll;
+  const lockY = W.catLineY - config.rat.homing.lockU;
+  const cx = s.cat.x;
+  for (const r of s.rats) {
+    if (r.y > lockY) continue;
+    const d = cx - r.x;
+    r.x += d > 0 ? Math.min(step, d) : Math.max(-step, d);
+  }
+}
+
 /** Boss damage multiplier: pierce taken at gates drills into the boss (SPEC-game-core § Boss). */
 function bossMult(s: RunState): number {
   return 1 + B.pierceBonus * s.cat.mods.pierceAdd;
@@ -268,6 +291,7 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     const prevDistanceU = s.distanceU;
     s.distanceU += scroll;
     for (const r of s.rats) r.y = r.baseY + s.distanceU;
+    homeRats(s, scroll);
     for (const g of s.gates) g.y = g.baseY + s.distanceU;
     for (const t of s.tunas) t.y = t.baseY + s.distanceU;
     if (s.boss !== null) moveBoss(s.boss, cat.x);

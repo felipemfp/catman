@@ -522,3 +522,12 @@ An occasional heal, placed so you have to fight for it.
 - **Boss tracks the cat:** in step 5, x moves toward `cat.x` by at most `trackUPerTick` (0.8) and never past it, and is clamped to `[sizeU/2, widthU − sizeU/2]`.
 - **Boss rage:** `missTicks` counts the ticks since the boss was last hit (any boss damage in step 4 resets it to 0). While `missTicks < missGraceTicks` (45) the boss descends at `speedUPerTick`. After that the speed is `speedUPerTick × min(rageMax, 1 + rageRampPerTick × (missTicks − grace + 1))`, with rageMax 3. `missTicks` is hashed after `maxHp`.
 - **Gate guards:** each half has a value: laser 3, yarn and fishbone 2, pencil and stat gates 1. When a gate pair at segment k is uneven, segment k−2 (if it would otherwise hold a formation) becomes a `guard` horde of `min(cap, ratsPerValue × gap)` rats (4 per point, cap 12). The rats sit in up to 2 rows of slots 34 U apart across the better half, and skip the corridor. The lane stays a pure function of (seed, k): guards depend on what the gate offers, never on what the player picks. Guards take precedence over tuna.
+
+## Homing rats (CORE_VERSION 7)
+
+As the run goes on, rats come for the cat. They spawn exactly where they always did; only their x changes after spawning.
+- `homingFrac(dM) = min(maxFrac, max(0, (dM − startM) × fracPerM))`, with startM 800, fracPerM 0.0002 and maxFrac 0.35. That's full strength at 2550 m.
+- In step 5, after scrolling, each rat above the lock line (`y ≤ catLineY − lockU`, lockU 250) moves toward `cat.x` by at most `homingFrac × scroll`, never past it. Because it's scaled by scroll, a stopped lane (boss fight) leaves rat x alone and positions stay distance-driven (T-lane holds).
+- Below the lock line, x is fixed, so the final approach is straight and a cat that sidesteps in time always dodges (homing.test.ts).
+- **The corridor guarantee (F3, F15) now holds only before `homing.startM`.** Generation still keeps spawn positions off the corridor. T-corridor and T-wall-rest check the window before homing starts. The old F15 check ran at max scroll, which now begins at 2500 m, so that case is no longer checked.
+- Rat HP ramp: 0.0003 → 0.0012 per m. Homing rats walk into the firing line, so without it rats stopped being a threat.

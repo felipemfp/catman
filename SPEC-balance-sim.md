@@ -181,3 +181,16 @@ Felipe chose "shape picks get boss value", plus a tracking, raging boss and guar
 | + gate guards | 2.00× | 0.91–0.92 |
 
 Still failing: laser median distance 2.0× (band 1.33×), and ratKillRate for yarn (0.587) and fishbone (0.556). Each change moved the laser gap the right way and none closed it. Its runs now end mostly to rats (756 of 1000), so what's left is how the DPS-greedy bot survives late rats, not bosses. The bots also always stand under the boss, so rage rarely fires for them; human players will feel it more than this table shows.
+
+## Homing rats (CORE_VERSION 7)
+
+Homing alone made rats easier: bots fire straight up, so drifting rats walk into the shots. Rat kill rate went from about 0.6 to 0.84–0.92, and the laser median hit the 20,000 m cap. With the rat-HP ramp raised to 0.0012/m (1000 runs):
+
+| build | median m | rats killed | boss 0 / 1 / 2 / 3 |
+|---|---|---|---|
+| pencil | 3500 | 0.81 | 0.91 / 0.89 / 0.91 / 0.94 |
+| laser | 9193 | 0.86 | 0.96 / 0.98 / 0.99 / 1.00 |
+| yarn | 4800 | 0.78 | 0.92 / 0.94 / 0.98 / 0.99 |
+| fishbone | 4336 | 0.72 | 0.92 / 0.95 / 0.98 / 0.99 |
+
+Every target passes, including ratKillRate for yarn and fishbone for the first time, except laser median distance at 2.01× (band 1.33×), the same gap as before homing.
