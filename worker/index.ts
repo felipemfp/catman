@@ -1,8 +1,6 @@
 // ghost-api: static assets (served before this runs) + POST /api/ghost + GET /api/ghost/:id.
 import { canonicalGhostJson, ghostLimits, isGhostId, validateGhostPayload } from '../src/core/ghost.ts';
-
-export const TTL_SECONDS = 2592000; // 30 days
-const ID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+import { newGhostId, TTL_SECONDS } from './ghost-id.ts';
 
 type Log = { route: string; status: number; id?: string; own?: boolean; bytes: number; error?: string };
 
@@ -12,18 +10,6 @@ function json(status: number, body: unknown, headers: Record<string, string> = {
   return new Response(JSON.stringify(body), { status, headers: h });
 }
 
-/** 8-char base62 from crypto.getRandomValues with rejection sampling (no modulo bias). */
-export function newGhostId(): string {
-  let out = '';
-  const buf = new Uint8Array(16);
-  while (out.length < 8) {
-    crypto.getRandomValues(buf);
-    for (const b of buf) {
-      if (b < 248 && out.length < 8) out += ID_ALPHABET[b % 62];
-    }
-  }
-  return out;
-}
 
 /** Reads at most `max` bytes, whatever Content-Length says. Returns null once the cap is passed. */
 async function readCapped(req: Request, max: number): Promise<Uint8Array | null> {

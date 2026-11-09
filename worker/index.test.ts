@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import worker, { newGhostId, TTL_SECONDS } from './index.ts';
+import worker from './index.ts';
+import { newGhostId, TTL_SECONDS } from './ghost-id.ts';
 import { CORE_VERSION, canonicalGhostJson, isGhostId, validateGhostPayload, type GhostErrorCode, type GhostPayload } from '../src/core/ghost.ts';
 
 const URL_POST = 'http://catman.test/api/ghost';
