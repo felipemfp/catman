@@ -197,3 +197,10 @@ There is no "force death" hook. A death that isn't in the input log would produc
 - **Switching:** the button bottom-right ("2.5D" / "Top") or the V key. The choice is stored in `localStorage['catman.view']`; `?view=flat|tilt` overrides it.
 - **Tests:** `camera.test.ts` covers identity, the cat row, monotone shrink, lane top on screen at moderate scale, and URL/storage precedence. E2E 11 covers the toggle, persistence, the URL override and no console errors in 3 browsers.
 - **Known cost:** far rats and gates draw at about 0.6 scale, so gates are harder to read early. This needs a play check.
+
+## CORE_VERSION 9 client changes
+
+- **2.5D is the default view.** `parseView` falls back to `tilt`; `?view=flat` or the toggle still switches, and the choice is remembered.
+- **Narrow gate boxes** drawn at `gates.widthU`, and a "missed" popup on `gateMissed`.
+- **Gate labels are emoji + number, no words** (`src/client/labels.ts`): `📏 +30%` over `⏩ −10%`, additive stats as `🗡️ +1`, a weapon gate as its emoji alone (bigger). A client test asserts no letters in any label.
+- **No boss win/lose banner.** The "YOU x/s · NEED y/s · ON PACE / TOO WEAK" panel is gone; the boss warning is only the sound. The HUD still shows your DPS.

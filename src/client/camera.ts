@@ -1,5 +1,5 @@
 // View projection, client only: core never sees it, so ghosts, replays and hashes don't depend on the view.
-// 'flat' is the original top-down view. 'tilt' is a 2.5D behind-the-cat view: depth is the distance ahead of the cat
+// 'flat' is the original top-down view. 'tilt' (the default) is a 2.5D behind-the-cat view: depth is the distance ahead of the cat
 // line, scale = zNear / (zNear + depth), and screen y runs toward a horizon above the screen. The cat row stays at
 // scale 1, so pointer x maps 1:1 where the cat is.
 import { config } from '../core/index.ts';
@@ -33,10 +33,10 @@ export function createCamera(view: View): Camera {
   };
 }
 
-/** ?view= wins, then the stored choice, else flat. */
+/** ?view= wins, then the stored choice, else 2.5D (the default since CORE_VERSION 9's PR). */
 export function parseView(search: string, stored: string | null): View {
   const q = new URLSearchParams(search).get('view');
   if (q === 'flat' || q === 'tilt') return q;
   if (stored === 'flat' || stored === 'tilt') return stored;
-  return 'flat';
+  return 'tilt';
 }

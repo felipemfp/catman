@@ -223,7 +223,7 @@ describe('T-warning (F2, F12)', () => {
             expect(view(run).gates).toHaveLength(0);
             warned = false;
             spawned++;
-            stateOf(run).boss!.hp = 1; // later bosses outgrow any build; only the lane around them matters here
+            stateOf(run).boss!.hp = 0; // dies next tick whatever the build (narrow gates can cripple one); only the lane matters here
           }
         }
         if (view(run).over !== null) break;

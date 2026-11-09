@@ -43,6 +43,14 @@ function moveBoss(b: Boss, catX: number): void {
   b.missTicks += 1;
 }
 
+/** Which gate box the cat's body overlaps at x, or null between/outside them (SPEC-game-core § Narrow gates). */
+export function gateSideAt(x: number): 'left' | 'right' | null {
+  const reach = (config.gates.widthU + C.widthU) / 2;
+  if (Math.abs(x - W.widthU / 4) < reach) return 'left';
+  if (Math.abs(x - (3 * W.widthU) / 4) < reach) return 'right';
+  return null;
+}
+
 /** Sideways homing per unit scrolled at distance dM (SPEC-game-core § Homing rats). */
 export function homingFrac(dM: number): number {
   const H = config.rat.homing;
@@ -340,7 +348,11 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
       const prevY = g.baseY + prevDistanceU;
       if (prevY < W.catLineY && W.catLineY <= g.y) {
         g.resolved = true;
-        const side = cat.x < W.widthU / 2 ? 'left' : 'right';
+        const side = gateSideAt(cat.x);
+        if (side === null) {
+          ev.push({ t: 'gateMissed', laneId: g.laneId });
+          continue;
+        }
         const gate = side === 'left' ? g.left : g.right;
         if (gate.kind === 'weapon' && gate.weapon !== cat.weapon) {
           cat.weapon = gate.weapon;

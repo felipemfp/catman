@@ -51,6 +51,8 @@ export const config = deepFreeze({
   gates: {
     everyM: 150,
     heightU: 40,
+    /** Each half is a box this wide, centred in its half; the cat takes it only if its body overlaps the box. */
+    widthU: 120,
     spawnYU: -20,
     dyU: 75,
     weaponChance: 0.25,
