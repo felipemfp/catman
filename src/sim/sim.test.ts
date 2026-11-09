@@ -2,7 +2,7 @@ import { describe, expect, inject, it } from 'vitest';
 import { config, generateSegment, simulateBossFight, step, view, type Mods, type WeaponId } from '../core/index.ts';
 import { runFromScenario } from '../core/testing.ts';
 import { sweep } from './sweep.ts';
-import { dominates, summarize, toCsv, type BuildSummary } from './report.ts';
+import { check, dominates, summarize, toCsv, type BuildSummary } from './report.ts';
 import { runOne } from './run.ts';
 import { insideRepo, parseArgs } from './cli.ts';
 import { chooseSide } from './bots.ts';
@@ -29,7 +29,7 @@ describe('T-S1 reproducible, T-S2 paired', () => {
 
 function fake(build: BuildSummary['build'], horde: number | null, boss0: number | null): BuildSummary {
   return {
-    build, runs: 1000, distanceM: { median: 500, p10: 400, p90: 600 }, hordeClearRate: { rate: horde, n: 1000 },
+    build, runs: 1000, distanceM: { median: 500, p10: 400, p90: 600 }, hordeClearRate: { rate: horde, n: 1000 }, ratKillRate: { rate: 0.7, n: 5000 },
     bossKillRate: [{ rate: boss0, n: boss0 === null ? 0 : 900 }], bossKillRateHolding: [], cause: {}, gatePicks: {},
   };
 }
@@ -112,6 +112,28 @@ describe.runIf(full)('periodic', () => {
   });
 });
 
+describe('check: casual targets', () => {
+  const mk = (over: Partial<BuildSummary>): BuildSummary => ({
+    ...fake('pencil', 0.7, 0.9), distanceM: { median: 2000, p10: 1000, p90: 3000 },
+    bossKillRate: [{ rate: 0.9, n: 900 }, { rate: 0.6, n: 500 }], bossKillRateHolding: [{ rate: 0.8, n: 100 }], ...over,
+  });
+  const lines = (b: BuildSummary) => check({ builds: [b] } as Parameters<typeof check>[0], 1).filter((l) => !l.target.includes('elapsed'));
+  it('a build meeting every target passes every line', () => {
+    expect(lines(mk({})).filter((l) => !l.pass)).toEqual([]);
+  });
+  it('each target fails on its own', () => {
+    const failing = (b: BuildSummary) => lines(b).filter((l) => !l.pass).map((l) => l.target.split(' ')[1]);
+    expect(failing(mk({ ratKillRate: { rate: 0.59, n: 5000 } }))).toEqual(['ratKillRate']);
+    expect(failing(mk({ bossKillRate: [{ rate: 0.9, n: 900 }, { rate: 0.49, n: 500 }] }))).toEqual(['bossKillRate[1]']);
+    expect(failing(mk({ bossKillRateHolding: [{ rate: 0.74, n: 100 }] }))).toEqual(['bossKillRateHolding[0]']);
+    expect(failing(mk({ distanceM: { median: 1499, p10: 1000, p90: 3000 } }))).toEqual(['median']);
+    expect(failing(mk({ bossKillRate: [{ rate: 0.99, n: 900 }, { rate: 0.6, n: 500 }] }))).toEqual(['bossKillRate[0]']);
+  });
+  it('the holding line is skipped below holdingMinN', () => {
+    expect(lines(mk({ bossKillRateHolding: [{ rate: 0, n: 29 }] })).some((l) => l.target.includes('Holding'))).toBe(false);
+  });
+});
+
 describe('bot gate choice: pencil prefers range over pierce', () => {
   const g = (stat: StatKey): StatGate => ({ kind: 'stat', buff: { stat, value: 1 }, debuff: { stat: 'damageMult', value: 0.85 } });
   const never = () => { throw new Error('rng used'); };
@@ -127,5 +149,15 @@ describe('bot gate choice: pencil prefers range over pierce', () => {
   });
   it('other builds keep first-preferred-from-left', () => {
     expect(chooseSide('yarn', g('pierceAdd'), g('projectilesAdd'), 'yarn', never)).toBe('left');
+  });
+});
+
+describe('rat counters', () => {
+  it('every killed rat was counted as seen, and a short pencil run kills some', () => {
+    for (let i = 0; i < 3; i++) {
+      const r = runOne('pencil', i, 3000);
+      expect(r.ratsKilled).toBeGreaterThan(0);
+      expect(r.ratsSeen).toBeGreaterThanOrEqual(r.ratsKilled);
+    }
   });
 });

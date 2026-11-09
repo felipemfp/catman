@@ -97,8 +97,9 @@ describe('T-wall-rest (F15)', () => {
 describe('T-once (F7)', () => {
   for (const catX of [269, 270, 271]) {
     it(`cat parked at ${catX}: one gateTaken per pair at max scroll`, () => {
-      // first spawning gate past the scroll ramp's end (scroll is max from 1000 m)
-      let g = Math.ceil(1000 / config.lane.segmentM);
+      // first spawning gate past the scroll ramp's end
+      const s = config.scroll;
+      let g = Math.ceil((s.maxUPerTick - s.baseUPerTick) / s.rampPerM / config.lane.segmentM);
       while (!spawnsGate(g)) g++;
       const run = runFromScenario({ seed: 'once0', distanceM: (g - 1) * config.lane.segmentM, catX, hp: 1e9 });
       const all = stepUntil(run, () => false, 300);
@@ -176,14 +177,11 @@ describe('T-hits', () => {
     it(`yarn bounces effBounces times (pierceAdd ${pierceAdd})`, () => {
       const y0 = catTopY - 40; // clear of the cat, so no contact
       const rats = Array.from({ length: 8 }, (_, i) => ({ x: 270, y: y0 - i * 40, hp: 1000 }));
-      const run = still('yarn', rats, { pierceAdd });
+      // fire rate at its clamp floor, so the second shot comes long after the 21-tick window, whatever the tuning
+      const run = still('yarn', rats, { pierceAdd, fireRateMult: config.clamps.multMin });
+      expect(60 / (config.weapons.yarn.rate * config.clamps.multMin)).toBeGreaterThan(21);
       let damage = 0;
-      for (let i = 0; i < 60; i++) {
-        const ev = step(run, 0);
-        // count only the first shot: later shots fire every 24 ticks
-        damage += ofType(ev, 'damage').length;
-        if (i === 20) break;
-      }
+      for (let i = 0; i <= 20; i++) damage += ofType(step(run, 0), 'damage').length;
       expect(damage).toBe(1 + config.weapons.yarn.bounces + pierceAdd);
     });
   }
