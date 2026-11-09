@@ -8,6 +8,7 @@ export type CatmanHooks = {
   hash(): string;
   catX(): number;
   ghostStatus(): string;
+  view(): string;
   poolStats(): Record<string, { live: number; allocated: number }>;
   ui(): UiState;
   playLog(levels: number[]): Promise<{ hash: string; ended: { cause: EndCause; score: number; tick: number } | null }>;
@@ -26,6 +27,7 @@ export function installHooks(scene: GameScene): void {
     hash: () => (scene.run ? hashState(scene.run) : ''),
     catX: () => (scene.run ? view(scene.run).cat.x : 270),
     ghostStatus: () => scene.ghostStatus,
+    view: () => scene.cam.view,
     poolStats: () => scene.poolStats(),
     ui: () => scene.ui(),
     playLog: (levels) => scene.startScripted(levels as InputLevel[]),

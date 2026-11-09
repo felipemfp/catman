@@ -183,3 +183,17 @@ There is no "force death" hook. A death that isn't in the input log would produc
 ## Open Questions
 
 - A local "beat your own best" ghost (`localStorage`, no upload)? Cheap but scope; proposed **not in MVP**.
+
+## View toggle: flat and 2.5D
+
+`src/client/camera.ts` projects world (x, y) to the screen. It's client-only: core, ghosts, replays and hashes don't see the camera.
+- **flat:** the original top-down view (identity projection). This is the default.
+- **tilt (2.5D, behind the cat):**
+  - `depth = catLineY − y` and `scale = zNear / (zNear + depth)`, with zNear 1300.
+  - Screen x shrinks toward the centre line, and screen y runs toward a horizon set so that world y = 0 lands at screen y 70 (about 0.6 scale).
+  - The cat row keeps scale 1, so pointer x maps 1:1 and input code is unchanged.
+  - Rectangles (lane stripes, gates, beams) draw as projected quads, and lane edges are outlined.
+  - Sprites draw under a translate+scale, far to near. Gate labels, damage numbers and puffs are projected too.
+- **Switching:** the button bottom-right ("2.5D" / "Top") or the V key. The choice is stored in `localStorage['catman.view']`; `?view=flat|tilt` overrides it.
+- **Tests:** `camera.test.ts` covers identity, the cat row, monotone shrink, lane top on screen at moderate scale, and URL/storage precedence. E2E 11 covers the toggle, persistence, the URL override and no console errors in 3 browsers.
+- **Known cost:** far rats and gates draw at about 0.6 scale, so gates are harder to read early. This needs a play check.
