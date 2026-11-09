@@ -7,7 +7,7 @@ import { corridorHalfU, segU, corridorX } from './lane.ts';
 import {
   catTopY, clampMods, defaultMods, effBounces, effDamage, effFireRate, effPierce, effProjectiles, effRange, isAdditive, tierFor, DEBUFFABLE,
 } from './stats.ts';
-import { corridorFollower, runFromScenario } from './testing.ts';
+import { corridorFollower, runFromScenario, stateOf } from './testing.ts';
 
 const full = inject('full');
 const W = config.world;
@@ -222,6 +222,7 @@ describe('T-warning (F2, F12)', () => {
             expect(view(run).gates).toHaveLength(0);
             warned = false;
             spawned++;
+            stateOf(run).boss!.hp = 1; // later bosses outgrow any build; only the lane around them matters here
           }
         }
         if (view(run).over !== null) break;

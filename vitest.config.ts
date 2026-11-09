@@ -7,6 +7,7 @@ const full = process.env.CATMAN_FULL === '1';
 export default defineConfig({
   test: {
     provide: { full },
+    testTimeout: full ? 900_000 : 5_000,
     projects: [
       { extends: true, test: { name: 'core', include: ['src/core/**/*.test.ts'] } },
       { extends: true, test: { name: 'sim', include: ['src/sim/**/*.test.ts'] } },

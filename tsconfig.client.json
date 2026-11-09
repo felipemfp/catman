@@ -21,6 +21,7 @@
     ]
   },
   "include": [
-    "src/client/**/*.ts"
+    "src/client/**/*.ts",
+    "src/core/vitest-context.d.ts"
   ]
 }
