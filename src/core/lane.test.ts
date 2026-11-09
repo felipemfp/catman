@@ -134,11 +134,12 @@ describe('T-corridor (F3)', () => {
       }
     }
   });
-  it.runIf(full)('a corridor-follower bot runs 3,000 m with zero hits (full only)', () => {
+  // homing rats (CORE_VERSION 7) end the corridor guarantee at homing.startM
+  it.runIf(full)('a corridor-follower bot runs to homing.startM with zero hits (full only)', () => {
     for (const seed of genSeeds.slice(0, 200)) {
       const run = runFromScenario({ seed, distanceM: 0, mods: { damageMult: 20 } });
       let hits = 0;
-      while (view(run).distanceU < 30000 && view(run).over === null) {
+      while (view(run).distanceU < config.rat.homing.startM * 10 && view(run).over === null) {
         hits += step(run, corridorFollower(view(run))).filter((e) => e.t === 'catHit').length;
       }
       expect({ seed, hits }).toEqual({ seed, hits: 0 });

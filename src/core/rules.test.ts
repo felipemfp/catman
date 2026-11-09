@@ -68,12 +68,13 @@ describe('T-wall-rest (F15)', () => {
   it('a cat waiting at the left wall through a gate can still dodge band g + 2', () => {
     let checked = 0;
     for (const seed of seeds) {
-      let gates = 0;
-      // gates past the end of the scroll ramp, so the whole window runs at max scroll
-      const firstK = Math.ceil((config.scroll.maxUPerTick - config.scroll.baseUPerTick) / config.scroll.rampPerM / config.lane.segmentM);
-      for (let g = firstK + 2; gates < 3; g++) {
-        if (!spawnsGate(g)) continue;
-        gates++;
+      // F15 is a corridor guarantee, and homing rats (CORE_VERSION 7) end the corridor guarantee at homing.startM.
+      // So: the last three gates whose window (through band g + 2) ends before homing starts.
+      const lastK = Math.floor(config.rat.homing.startM / config.lane.segmentM) - 3;
+      const gs: number[] = [];
+      for (let k = lastK; k > 0 && gs.length < 3; k--) if (spawnsGate(k)) gs.push(k);
+      expect(gs).toHaveLength(3);
+      for (const g of gs) {
         // start in the empty buffer before the gate, pinned to the left wall, from rest
         const run = runFromScenario({ seed, distanceM: (g - 1) * config.lane.segmentM, catX: 20 });
         const st = stateOf(run);

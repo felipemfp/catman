@@ -41,7 +41,11 @@ export const config = deepFreeze({
     corridorEdgeMarginU: 20,
   },
   cat: { widthU: 40, heightU: 48, maxSpeedUPerTick: 9, accelUPerTick2: 1.5, hp: 3, invulnTicks: 60, hitFreezeTicks: 6 },
-  rat: { sizeU: 28, spawnYU: -14, baseHp: 12, hpRampPerM: 0.0003 },
+  rat: {
+    sizeU: 28, spawnYU: -14, baseHp: 12, hpRampPerM: 0.0012,
+    /** Past startM, rats drift toward the cat by frac × scroll per tick (frac ramps per m, capped); x locks within lockU of the cat line. */
+    homing: { startM: 800, fracPerM: 0.0002, maxFrac: 0.35, lockU: 250 },
+  },
   /** Heal pickup: on tuna marks, with `chance`, off the corridor inside a hexagon of `guards` rats. */
   tuna: { everyM: 200, chance: 0.8, sizeU: 32, guards: 6, guardRadiusU: 50, fullHpScore: 50, xTries: 8 },
   gates: {
