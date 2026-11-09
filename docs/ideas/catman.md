@@ -39,7 +39,7 @@ Every run comes from a seed in the URL. Share a link and your friend plays the s
   - Payload size cap (a 3-minute input log should be a few KB), reject anything larger
   - Basic per-IP rate limit on `POST`
   - KV TTL: 30 days
-  - If the ghost fetch fails, the run still plays with the seed alone, without the ghost. KV is eventually consistent, so a ghost written seconds ago may not have reached a friend's region yet: retry for a few seconds, then fall back.
+  - If the ghost fetch fails, the run still plays with the seed alone, without the ghost. KV is eventually consistent, so a ghost written seconds ago may not have reached a friend's region yet: retry for at least 70 s (Cloudflare documents "up to 60 seconds or more"), then fall back. Schedule in SPEC-client.md.
 
 **Build order** (one target, staged so each piece is fun on its own):
 
@@ -68,6 +68,9 @@ Every run comes from a seed in the URL. Share a link and your friend plays the s
 
 ## Open Questions
 
-- How does a weapon gate interact with your number buffs? Do they carry over to the new weapon or reset? This changes how much a weapon swap costs.
-- Boss timing: fixed every N seconds, or every N meters? Seeded either way, but it changes how speed feels.
-- How fast does KV propagate today? Check Cloudflare's docs at setup; it sets how long the ghost fetch retries before falling back.
+- ~~Weapon swap vs number buffs?~~ Resolved: buffs carry over fully (SPEC-game-core § Weapons).
+- ~~Boss timing?~~ Resolved: scroll speed ramps, boss every 500 m (SPEC-game-core § Lane generation).
+- ~~How fast does KV propagate?~~ Resolved: up to 60 s or more per Cloudflare docs; see SPEC-ghost-api.md A5.
+- **Deviations recorded in the spec (2026-11-08):** touch input is "chase the finger" instead of tapping left/right halves (finer positioning for laser and corridors; check it in the playtest), and the ghost API lives at `/api/ghost` instead of `/ghost`. See SPEC-client.md § Input and SPEC-ghost-api.md.
+- **Balance metric (2026-11-08):** "horde clear time" became "horde clear rate" in balance-sim, because clear time only counts cleared hordes and rewards builds that let hard ones escape. See SPEC-balance-sim.md § Metrics.
+- **Build order (2026-11-08):** the spec builds game-core first and the client last, the reverse of "movement and shooting feel first" above. Ghosts, the sim and cross-engine determinism all depend on core. Feel risk is covered by a throwaway feel spike run in parallel. See SPEC.md § Capability Map.
