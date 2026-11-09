@@ -139,7 +139,7 @@ describe('T-clamps (F8)', () => {
     const y = catTopY - config.weapons.yarn.speedU;
     const run = runFromScenario({ seed: 'clamp1', distanceM: 1000, weapon: 'yarn', hp: 1e9, rats: [{ x: 270, y, hp: 1000 }, { x: 270, y, hp: 1000 }] });
     // freeze the rats in place: scroll would move them, so cancel by making the run a boss fight
-    stateOf(run).boss = { index: 99, x: 270, y: -400, hp: 1e12, maxHp: 1e12 };
+    stateOf(run).boss = { index: 99, x: 270, y: -400, hp: 1e12, maxHp: 1e12, missTicks: 0 };
     step(run, 0);
     const p = view(run).projectiles[0] as Projectile;
     expect(p.hitIds).toHaveLength(2);
@@ -152,7 +152,7 @@ describe('T-clamps (F8)', () => {
 /** Scenario with the boss pause trick so crafted rats don't scroll. */
 function still(weapon: WeaponId, rats: { x: number; y: number; hp: number }[], mods: Partial<Mods> = {}) {
   const run = runFromScenario({ seed: 'hits0', distanceM: 1000, weapon, hp: 1e9, rats, mods });
-  stateOf(run).boss = { index: 99, x: 270, y: -2000, hp: 1e12, maxHp: 1e12 };
+  stateOf(run).boss = { index: 99, x: 270, y: -2000, hp: 1e12, maxHp: 1e12, missTicks: 0 };
   return run;
 }
 
@@ -173,6 +173,19 @@ describe('T-hits', () => {
     expect(view(run).boss!.hp).toBe(500 - config.weapons.pencil.damage);
     expect(view(run).projectiles).toHaveLength(0);
   });
+  for (const pierceAdd of [0, 2]) {
+    const mult = 1 + config.boss.pierceBonus * pierceAdd;
+    it(`a pencil with pierceAdd ${pierceAdd} hits the boss for damage × ${mult}`, () => {
+      const run = runFromScenario({ seed: 'hits2', distanceM: 1000, hp: 1e9, mods: { pierceAdd }, boss: { x: 270, y: catTopY - 80, hp: 500 } });
+      step(run, 0);
+      expect(view(run).boss!.hp).toBeCloseTo(500 - config.weapons.pencil.damage * mult, 9);
+    });
+    it(`a laser with pierceAdd ${pierceAdd} hits the boss for dps × ${mult}`, () => {
+      const run = runFromScenario({ seed: 'hits3', distanceM: 1000, hp: 1e9, weapon: 'laser', mods: { pierceAdd }, boss: { x: 270, y: catTopY - 80, hp: 500 } });
+      step(run, 0);
+      expect(view(run).boss!.hp).toBeCloseTo(500 - (config.weapons.laser.dps / 60) * mult, 9);
+    });
+  }
   for (const pierceAdd of [0, 1]) {
     it(`yarn bounces effBounces times (pierceAdd ${pierceAdd})`, () => {
       const y0 = catTopY - 40; // clear of the cat, so no contact
