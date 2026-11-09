@@ -147,18 +147,19 @@ describe('check: casual targets', () => {
   });
 });
 
-describe('bot gate choice: pencil prefers range over pierce', () => {
-  const g = (stat: StatKey): StatGate => ({ kind: 'stat', buff: { stat, value: 1 }, debuff: { stat: 'damageMult', value: 0.85 } });
+describe('bot gate choice: pencil prefers damage / fire rate (CORE_VERSION 12, Felipe: DPS-first + nerf pencil)', () => {
+  // range-first held the pencil bot to 0.69x the other medians; bosses come to the cat now, so range buys nothing in a fight
+  const g = (stat: StatKey): StatGate => ({ kind: 'stat', buff: { stat, value: 1 }, debuff: { stat: 'rangeMult', value: 0.85 } });
   const never = () => { throw new Error('rng used'); };
-  it('range beats pierce on either side; pierce still beats an off-axis buff', () => {
-    expect(chooseSide('pencil', g('pierceAdd'), g('rangeMult'), 'pencil', never)).toBe('right');
-    expect(chooseSide('pencil', g('rangeMult'), g('pierceAdd'), 'pencil', never)).toBe('left');
-    expect(chooseSide('pencil', g('damageMult'), g('pierceAdd'), 'pencil', never)).toBe('right');
+  it('a DPS-axis buff beats range and pierce on either side; two equal ranks fall to the left', () => {
+    expect(chooseSide('pencil', g('rangeMult'), g('damageMult'), 'pencil', never)).toBe('right');
+    expect(chooseSide('pencil', g('fireRateMult'), g('pierceAdd'), 'pencil', never)).toBe('left');
+    expect(chooseSide('pencil', g('pierceAdd'), g('rangeMult'), 'pencil', never)).toBe('left');
     expect(chooseSide('pencil', g('damageMult'), g('fireRateMult'), 'pencil', never)).toBe('left');
   });
   it('a weapon gate offered to its holder ranks by its fallback buff', () => {
-    const wg = { kind: 'weapon', weapon: 'pencil', fallback: g('rangeMult') } as const;
-    expect(chooseSide('pencil', g('pierceAdd'), wg, 'pencil', never)).toBe('right');
+    const wg = { kind: 'weapon', weapon: 'pencil', fallback: g('damageMult') } as const;
+    expect(chooseSide('pencil', g('rangeMult'), wg, 'pencil', never)).toBe('right');
   });
   it('other builds keep first-preferred-from-left', () => {
     expect(chooseSide('yarn', g('pierceAdd'), g('projectilesAdd'), 'yarn', never)).toBe('left');

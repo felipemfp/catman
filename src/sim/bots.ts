@@ -19,8 +19,8 @@ const PREFERRED: Record<Exclude<Build, 'random'>, (s: StatKey) => number> = {
   laser: (s) => (onDpsAxis(s) ? 1 : 0),
   fishbone: (s) => (s === 'projectilesAdd' || s === 'pierceAdd' ? 1 : 0),
   yarn: (s) => (s === 'projectilesAdd' || s === 'pierceAdd' ? 1 : 0),
-  // range first: it is what lands pencil damage on the boss (SPEC-balance-sim § First balance pass)
-  pencil: (s) => (s === 'rangeMult' ? 2 : s === 'pierceAdd' ? 1 : 0),
+  // damage / fire rate first, like laser: bosses track the cat and come to it, so range buys nothing in a fight (CORE_VERSION 12 balance pass)
+  pencil: (s) => (onDpsAxis(s) ? 1 : 0),
 };
 
 function halfRank(build: Exclude<Build, 'random'>, gate: Gate, held: WeaponId): number {
