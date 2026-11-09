@@ -48,7 +48,7 @@ A bot is `(view: DeepReadonly<RunState>, rng: () => number) => InputLevel`. The 
 6. Input = the level that moves toward the target without overshooting at the current accel.
 
 **Gate choice per build** (the bot steers to the chosen half once a gate pair is on screen):
-- **Weapon builds** (`pencil`, `laser`, `yarn`, `fishbone`): always take their weapon gate. Otherwise take the stat gate whose buff is on the build's preferred axis (laser: DPS; fishbone, yarn: shape; pencil: `pierceAdd` or `rangeMult`), falling back to the left half.
+- **Weapon builds** (`pencil`, `laser`, `yarn`, `fishbone`): always take their weapon gate. Otherwise take the stat gate whose buff is on the build's preferred axis (laser: DPS; fishbone, yarn: shape; pencil: `rangeMult`, then `pierceAdd`). A higher-ranked buff wins over a lower one on either half; equal ranks fall back to the left half.
 - **`random`:** a coin flip from the bot RNG.
 
 ## Metrics
@@ -115,3 +115,15 @@ Changed in `config.ts`: boss `baseHp` 800 → 375, pencil damage 10 → 13, tier
 | bossKillRate[0] pencil / laser / yarn / fishbone | 0.04 / 0.11 / 0.05 / 0.05 | 0.83 / **0.96** / 0.81 / 0.79 |
 
 **Still failing: the laser build at 0.96 > 0.90.** Most laser-bot runs still hold the pencil at boss 0 (only two gates come first), and the laser bot takes DPS buffs, which are exactly the boss stat. The pencil bot takes pierce, usually paid with a damage or fire-rate debuff, and about a third of its runs land on one identical boss damage. So the kill rates jump in steps as boss HP moves, and no HP puts both bots inside a 0.30-wide band without splitting that group on a single HP point (351 passes three targets and fails laser at 0.908; 352 fails pencil at 0.594). Tuning to one HP point would be fitting the fixed seeds, not balance. Options (targets and bots are Felipe's call): widen the boss-0 band, have the pencil bot prefer range (which helps it on bosses), or add a third gate before boss 0.
+
+## Second balance pass (2026-11-09, CORE_VERSION 3)
+
+Felipe picked "pencil bot prefers range". The pencil bot now ranks `rangeMult` above `pierceAdd` instead of taking whichever preferred buff sits on the left. On its own that moved pencil from 0.83 to 0.84 and left laser at 0.965, since the laser bot's picks are unchanged. What it bought is room on boss HP: there is now a window (about 388–396) where all four builds pass, where before there was none. Changed in `config.ts`: boss `baseHp` 375 → 390.
+
+| bossKillRate[0] | pencil | laser | yarn | fishbone |
+|---|---|---|---|---|
+| 375, old bot (1000 runs) | 0.83 | **0.965** | 0.81 | 0.79 |
+| 390, range bot (1000 runs) | 0.753 | 0.874 | 0.724 | 0.702 |
+| 390, range bot (3000 runs: 2000 seeds unused in tuning) | 0.737 | 0.863 | 0.711 | 0.690 |
+
+Every `--check` target passes at both sizes. The rates still move in steps: 391 drops pencil, yarn and fishbone to 0.62–0.66 at once, and 387 pushes laser back to 0.945. 390 was picked as the HP that keeps every build at least 0.037 inside the band on the held-out seeds. Watch the laser margin (0.863 vs 0.90) on the next tuning change.

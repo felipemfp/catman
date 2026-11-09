@@ -5,6 +5,8 @@ import { sweep } from './sweep.ts';
 import { dominates, summarize, toCsv, type BuildSummary } from './report.ts';
 import { runOne } from './run.ts';
 import { insideRepo, parseArgs } from './cli.ts';
+import { chooseSide } from './bots.ts';
+import type { StatGate, StatKey } from '../core/index.ts';
 
 const full = inject('full');
 
@@ -107,5 +109,23 @@ describe.runIf(full)('periodic', () => {
     let reached = 0;
     for (let i = 0; i < 100; i++) if (runOne('pencil', i).reachedBoss0) reached++;
     expect(reached).toBeGreaterThanOrEqual(90);
+  });
+});
+
+describe('bot gate choice: pencil prefers range over pierce', () => {
+  const g = (stat: StatKey): StatGate => ({ kind: 'stat', buff: { stat, value: 1 }, debuff: { stat: 'damageMult', value: 0.85 } });
+  const never = () => { throw new Error('rng used'); };
+  it('range beats pierce on either side; pierce still beats an off-axis buff', () => {
+    expect(chooseSide('pencil', g('pierceAdd'), g('rangeMult'), 'pencil', never)).toBe('right');
+    expect(chooseSide('pencil', g('rangeMult'), g('pierceAdd'), 'pencil', never)).toBe('left');
+    expect(chooseSide('pencil', g('damageMult'), g('pierceAdd'), 'pencil', never)).toBe('right');
+    expect(chooseSide('pencil', g('damageMult'), g('fireRateMult'), 'pencil', never)).toBe('left');
+  });
+  it('a weapon gate offered to its holder ranks by its fallback buff', () => {
+    const wg = { kind: 'weapon', weapon: 'pencil', fallback: g('rangeMult') } as const;
+    expect(chooseSide('pencil', g('pierceAdd'), wg, 'pencil', never)).toBe('right');
+  });
+  it('other builds keep first-preferred-from-left', () => {
+    expect(chooseSide('yarn', g('pierceAdd'), g('projectilesAdd'), 'yarn', never)).toBe('left');
   });
 });
