@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "catman",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-08", // set on the scaffold day and committed; bump deliberately
+  "assets": { "directory": "./dist" }, // no not_found_handling: unmatched paths must reach the Worker (ghost-api A7)
+  // Custom domain, once felipemfp.dev is on this Cloudflare account (Felipe adds it; production change):
+  // "routes": [{ "pattern": "catman.felipemfp.dev", "custom_domain": true }],
+  "kv_namespaces": [{ "binding": "GHOSTS", "id": "00000000000000000000000000000000" }], // replace with the id from `wrangler kv namespace create GHOSTS` before deploy
+  "ratelimits": [{ "name": "GHOST_POST_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
+  "observability": { "enabled": true },
+  "env": {
+    "e2e": {
+      // e2e build with test hooks; local only, never deployed
+      "assets": { "directory": "./dist-e2e" },
+      // bindings are not inherited by named envs, so they're repeated here
+      "kv_namespaces": [{ "binding": "GHOSTS", "id": "00000000000000000000000000000000" }],
+      "ratelimits": [{ "name": "GHOST_POST_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }]
+    }
+  }
+}
