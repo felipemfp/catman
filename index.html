@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#14121c" />
+    <title>Catman</title>
+    <style>
+      :root { color-scheme: dark; --fg: #f4ead5; --bg: #14121c; --accent: #ffd23f; --err: #ff8a8a; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; overflow: hidden; touch-action: none; }
+      #game { position: fixed; inset: 0; }
+      .panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(86vw, 360px); padding: 20px;
+               background: #0b0a10e6; border: 2px solid #ffffff22; border-radius: 14px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
+      .panel[hidden] { display: none; }
+      h1 { margin: 0; font-size: 44px; letter-spacing: 2px; color: var(--accent); }
+      .big { font-size: 40px; font-weight: 700; }
+      .muted { opacity: 0.8; font-size: 15px; }
+      button { font: inherit; font-size: 18px; padding: 12px; border-radius: 10px; border: 0; background: #2b2740; color: var(--fg); cursor: pointer; }
+      button.primary { background: var(--accent); color: #1a1500; font-weight: 700; }
+      button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      input#link { font: inherit; font-size: 14px; padding: 8px; border-radius: 8px; border: 1px solid #ffffff33; background: #000; color: var(--fg); width: 100%; box-sizing: border-box; }
+      #error { color: var(--err); font-size: 15px; }
+      #btn-mute { position: fixed; right: 10px; bottom: 10px; z-index: 5; padding: 8px 10px; background: #0008; }
+      .hint { font-size: 13px; opacity: 0.6; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <section id="title" class="panel" aria-label="Title">
+      <h1>CATMAN</h1>
+      <div id="seed" class="muted"></div>
+      <div id="ghost" class="muted" aria-live="polite"></div>
+      <button id="btn-play" class="primary">Play</button>
+      <div class="hint">← → / A D, or drag. Gates trade one stat for another: pick fast.</div>
+    </section>
+    <section id="death" class="panel" aria-label="Run over" hidden>
+      <div id="cause" class="muted"></div>
+      <div id="score" class="big"></div>
+      <div id="vs" class="muted"></div>
+      <button id="btn-share" class="primary">Share run</button>
+      <input id="link" readonly hidden aria-label="Share link" />
+      <div id="error" role="alert" hidden></div>
+      <button id="btn-copy-seed" hidden>Copy seed-only link</button>
+      <button id="btn-again">Again</button>
+      <button id="btn-new">New seed</button>
+    </section>
+    <button id="btn-mute" aria-label="Mute">🔇</button>
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>
