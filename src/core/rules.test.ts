@@ -95,18 +95,34 @@ describe('T-wall-rest (F15)', () => {
   });
 });
 
-describe('T-once (F7)', () => {
-  for (const catX of [269, 270, 271]) {
-    it(`cat parked at ${catX}: one gateTaken per pair at max scroll`, () => {
-      // first spawning gate past the scroll ramp's end
+describe('T-once (F7) with narrow gates (CORE_VERSION 9)', () => {
+  // each half is a box of gates.widthU centred in its half; the cat takes it only if its body overlaps the box
+  const reach = (config.gates.widthU + config.cat.widthU) / 2;
+  const cL = W.widthU / 4;
+  const cR = (3 * W.widthU) / 4;
+  const cases: [number, 'left' | 'right' | null][] = [
+    [cL, 'left'], [cL - reach + 1, 'left'], [cL + reach - 1, 'left'], [cL - reach - 1, null], [cL + reach + 1, null],
+    [cR, 'right'], [cR - reach + 1, 'right'], [cR + reach + 1, null], [W.widthU / 2, null],
+  ];
+  for (const [catX, side] of cases) {
+    it(`cat parked at ${catX}: ${side ?? 'misses both halves'}, exactly one event per pair at max scroll`, () => {
       const s = config.scroll;
       let g = Math.ceil((s.maxUPerTick - s.baseUPerTick) / s.rampPerM / config.lane.segmentM);
       while (!spawnsGate(g)) g++;
       const run = runFromScenario({ seed: 'once0', distanceM: (g - 1) * config.lane.segmentM, catX, hp: 1e9 });
+      const before = { ...view(run).cat.mods };
       const all = stepUntil(run, () => false, 300);
       const taken = ofType(all, 'gateTaken');
-      expect(taken).toHaveLength(1);
-      expect(taken[0]!.side).toBe(catX < W.widthU / 2 ? 'left' : 'right');
+      const missed = ofType(all, 'gateMissed');
+      if (side === null) {
+        expect(taken).toHaveLength(0);
+        expect(missed).toHaveLength(1);
+        expect(view(run).cat.mods).toEqual(before);
+      } else {
+        expect(missed).toHaveLength(0);
+        expect(taken).toHaveLength(1);
+        expect(taken[0]!.side).toBe(side);
+      }
     });
   }
 });

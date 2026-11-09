@@ -44,11 +44,12 @@ describe('camera: tilt (2.5D)', () => {
 });
 
 describe('parseView', () => {
-  it('URL wins, then storage, else flat; junk is ignored', () => {
+  it('URL wins, then storage, else 2.5D (tilt); junk is ignored', () => {
     expect(parseView('?view=tilt', null)).toBe('tilt');
     expect(parseView('?view=flat', 'tilt')).toBe('flat');
     expect(parseView('', 'tilt')).toBe('tilt');
-    expect(parseView('?view=nope', 'junk')).toBe('flat');
-    expect(parseView('?seed=abcd', null)).toBe('flat');
+    expect(parseView('?view=nope', 'junk')).toBe('tilt');
+    expect(parseView('', 'flat')).toBe('flat');
+    expect(parseView('?seed=abcd', null)).toBe('tilt');
   });
 });

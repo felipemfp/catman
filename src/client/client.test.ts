@@ -5,7 +5,7 @@ import { parseBoot, seedFromBytes, shareLink, searchFor } from './url.ts';
 import { levelFromKeys, levelFromPointer } from './input.ts';
 import { advance, TICK_MS } from './loop.ts';
 import { fetchGhost, verifyBody, RETRY_AT_S, type FetchDeps } from './ghostfetch.ts';
-import { gateLabel } from './labels.ts';
+import { gateLabel, iconGlyph } from './labels.ts';
 import { createGhostCheck } from './ghostcheck.ts';
 import { formatScore } from './format.ts';
 import { CORE_VERSION, encodeInputLog, toBase64 } from '../core/index.ts';
@@ -113,6 +113,10 @@ describe('U-labels (C5)', () => {
         for (const half of [g.left, g.right]) for (const held of weapons) {
           const l = gateLabel(half, held);
           expect(l.icons.length).toBeGreaterThanOrEqual(1);
+          // emoji + number only: no words on narrow gates
+          expect(l.text).not.toMatch(/[A-Za-z]/);
+          for (const icon of l.icons) expect(l.text).toContain(iconGlyph(icon));
+          if (half.kind === 'stat') expect(l.text.split('\n')).toHaveLength(2);
           if (half.kind === 'stat') expect(l.signs).toEqual(['+', '−']);
           if (half.kind === 'weapon') {
             if (half.weapon === held) expect(l.icons).toEqual([half.fallback.buff.stat, half.fallback.debuff.stat]);

@@ -85,8 +85,6 @@ export class GameScene extends Phaser.Scene {
   g!: Phaser.GameObjects.Graphics;
   hud!: Phaser.GameObjects.Text;
   hudRight!: Phaser.GameObjects.Text;
-  warnText!: Phaser.GameObjects.Text;
-  warnUntil = 0;
   gateTexts: Phaser.GameObjects.Text[] = [];
   damageNums: DamageNum[] = [];
   puffs: Puff[] = [];
@@ -114,8 +112,6 @@ export class GameScene extends Phaser.Scene {
     const style = { fontFamily: 'system-ui, sans-serif', fontSize: '22px', color: COL.text };
     this.hud = this.add.text(12, 10, '', style).setDepth(10);
     this.hudRight = this.add.text(W - 12, 10, '', { ...style, align: 'right' }).setOrigin(1, 0).setDepth(10);
-    this.warnText = this.add.text(W / 2, 120, '', { ...style, fontSize: '24px', fontStyle: 'bold', align: 'center', backgroundColor: '#000000aa', padding: { x: 10, y: 8 } })
-      .setOrigin(0.5, 0).setDepth(11).setVisible(false);
     // pools allocated once, up front: nothing pooled is created per frame (C8)
     for (let i = 0; i < 40; i++) {
       const text = this.add.text(0, 0, '', { fontFamily: 'system-ui, sans-serif', fontSize: '16px', color: '#ffe08a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5).setVisible(false);
@@ -123,7 +119,7 @@ export class GameScene extends Phaser.Scene {
       this.puffs.push({ x: 0, y: 0, life: 0, live: false });
     }
     for (let i = 0; i < 8; i++) {
-      this.gateTexts.push(this.add.text(0, 0, '', { fontFamily: 'system-ui, sans-serif', fontSize: '20px', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(4).setVisible(false));
+      this.gateTexts.push(this.add.text(0, 0, '', { fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(4).setVisible(false));
     }
     this.setupInput();
     if (this.ghostId) this.startGhostFetch(this.ghostId);
@@ -190,7 +186,6 @@ export class GameScene extends Phaser.Scene {
     this.screen = s;
     this.hud.setVisible(s === 'run');
     this.hudRight.setVisible(s === 'run');
-    if (s !== 'run') this.warnText.setVisible(false);
     this.onUi?.();
   }
 
@@ -376,20 +371,13 @@ export class GameScene extends Phaser.Scene {
           if (!this.reducedMotion) this.cameras.main.shake(300, 10 / W);
           break;
         case 'gateTaken': this.sfx.play('gate'); break;
+        case 'gateMissed': if (this.run) this.spawnText(view(this.run).cat.x, CAT_Y - 40, 'missed'); break;
         case 'tunaEaten':
           this.sfx.play('heal');
           if (this.run) this.spawnText(view(this.run).cat.x, CAT_Y - 40, e.healed ? '+1 ♥' : `+${config.tuna.fullHpScore}`);
           break;
-        case 'bossWarning': {
-          this.sfx.play('warning');
-          const verdict = e.onPace ? 'ON PACE' : 'TOO WEAK';
-          this.warnText.setText(`BOSS · YOU ${Math.round(e.haveDps)}/s · NEED ${Math.round(e.needDps)}/s\n${verdict}`);
-          this.warnText.setBackgroundColor(e.onPace ? '#1f6f45' : '#8a2327');
-          this.warnText.setVisible(true);
-          this.warnUntil = this.frame + 60 * 5;
-          break;
-        }
-        case 'bossSpawned': this.warnUntil = Math.min(this.warnUntil, this.frame + 90); break;
+        // no win/lose banner (Felipe): the warning is only a sound, the fight speaks for itself
+        case 'bossWarning': this.sfx.play('warning'); break;
         default: break;
       }
     }
@@ -423,7 +411,6 @@ export class GameScene extends Phaser.Scene {
       if (d.life <= 0) d.text.setVisible(false);
     }
     for (const p of this.puffs) if (p.live) { p.life -= dt; if (p.life <= 0) p.live = false; }
-    if (this.warnText.visible && this.frame > this.warnUntil) this.warnText.setVisible(false);
   }
 
   poolStats(): Record<string, { live: number; allocated: number }> {
@@ -505,27 +492,30 @@ export class GameScene extends Phaser.Scene {
       if (pair.y < -gh || pair.y > H + gh) continue;
       for (const side of ['left', 'right'] as const) {
         const gate = side === 'left' ? pair.left : pair.right;
-        const x0 = side === 'left' ? 0 : W / 2;
+        // narrow gates: a box of gates.widthU centred in its half (core takes it only when the cat overlaps it)
+        const gw = config.gates.widthU;
+        const x0 = (side === 'left' ? W / 4 : (3 * W) / 4) - gw / 2;
         const label = gateLabel(gate as GatePair['left'], v.cat.weapon);
         const isWeapon = gate.kind === 'weapon' && gate.weapon !== v.cat.weapon;
         const alpha = pair.resolved ? 0.25 : 0.55;
         g.fillStyle(isWeapon ? COL.weapon : COL.lane, alpha);
-        this.quad(g, x0 + 4, pair.y - gh, W / 2 - 8, gh * 2);
+        this.quad(g, x0, pair.y - gh, gw, gh * 2);
         // buff stripe on top (green), debuff below (red): extra to the icons and signs
         if (!isWeapon) {
           g.fillStyle(COL.buff, alpha + 0.2);
-          this.quad(g, x0 + 4, pair.y - gh, W / 2 - 8, 6);
+          this.quad(g, x0, pair.y - gh, gw, 6);
           g.fillStyle(COL.debuff, alpha + 0.2);
-          this.quad(g, x0 + 4, pair.y + gh - 6, W / 2 - 8, 6);
+          this.quad(g, x0, pair.y + gh - 6, gw, 6);
         }
         g.lineStyle(3, 0xffffff, pair.resolved ? 0.2 : 0.8);
-        this.quad(g, x0 + 4, pair.y - gh, W / 2 - 8, gh * 2, 'stroke');
+        this.quad(g, x0, pair.y - gh, gw, gh * 2, 'stroke');
         const t = this.gateTexts[ti];
         if (!t) continue;
         ti++;
-        const icon = label.icons.map(iconGlyph).join(' ');
-        const tp = this.cam.project(x0 + W / 4, pair.y);
-        t.setText(`${icon}\n${label.text}`).setPosition(tp.x, tp.y).setScale(tp.s).setVisible(true).setAlpha(pair.resolved ? 0.35 : 1);
+        const tp = this.cam.project(x0 + gw / 2, pair.y);
+        // a lone weapon emoji reads bigger than two stat lines
+        t.setFontSize(label.signs.length === 0 ? 34 : 18);
+        t.setText(label.text).setPosition(tp.x, tp.y).setScale(tp.s).setVisible(true).setAlpha(pair.resolved ? 0.35 : 1);
       }
     }
     for (; ti < this.gateTexts.length; ti++) this.gateTexts[ti]!.setVisible(false);
@@ -623,12 +613,5 @@ function weaponName(w: WeaponId): string {
   return { pencil: '✏️ Pencil', laser: '🔦 Laser', yarn: '🧶 Yarn', fishbone: '🐟 Fishbone' }[w];
 }
 
-function iconGlyph(id: string): string {
-  const m: Record<string, string> = {
-    damageMult: '💥', fireRateMult: '⏩', rangeMult: '📏', pierceAdd: '🗡️', projectilesAdd: '➕', moveSpeedMult: '👟',
-    pencil: '✏️', laser: '🔦', yarn: '🧶', fishbone: '🐟',
-  };
-  return m[id] ?? '?';
-}
 
 export { CAUSE_TEXT, newSeed };

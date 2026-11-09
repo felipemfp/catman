@@ -539,3 +539,11 @@ Felipe: a cat could stand still and run for a long time. A still cat reached a 1
 - Homing now starts at 500 m (was 800) and is stronger: fracPerM 0.0004, maxFrac 0.7. lockU stays 250, and a cat that sidesteps once still dodges (homing.test.ts).
 - Rat HP ramp 0.0012 → 0.003 per m.
 - Corridor tests (T-corridor, T-wall-rest) cover the window before 500 m. Only two gates fall in it, so T-wall-rest checks 2–3 gates.
+
+## Narrow gates (CORE_VERSION 9)
+
+Felipe: reduce the gate size so the player has to position for it.
+- Each half is a box `gates.widthU` (120 U) wide, centred at W/4 or 3W/4. `gateSideAt(x)` returns the half whose box the cat's body overlaps (`|x − centre| < (widthU + cat.widthU) / 2`, a 160 U window), or null.
+- Step 7: when a pair crosses the cat line and the cat overlaps neither box (between them or outside), the pair resolves with a `gateMissed { laneId }` event and nothing is applied. Otherwise it's as before.
+- A still cat at x 270 now misses every gate and dies at the first boss (still-cat median 1172 → 500 m). The sim bots already steer to the box centres, so the sweep is unchanged.
+- Tests: T-once checks both box edges ±1 U, the seam and the outside for one event per pair. T-warning removes each boss outright (hp 0), since narrow gates can hand a corridor-following test cat a crippled build.

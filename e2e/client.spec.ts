@@ -168,29 +168,29 @@ test('E2E 10 pools stay flat', async ({ page }) => {
   expect(new Set(samples).size).toBe(1);
 });
 
-test('E2E 11 view toggle: V and the button switch flat ↔ 2.5D, the choice persists, ?view= overrides; no errors', async ({ page }, info) => {
+test('E2E 11 view toggle: 2.5D by default; V and the button switch views, the choice persists, ?view= overrides; no errors', async ({ page }, info) => {
   const errors: string[] = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?s=view1');
   await hooks(page);
-  expect(await page.evaluate(() => window.__catman.view())).toBe('flat');
-  await page.getByRole('button', { name: 'Play' }).click();
-  await page.waitForFunction(() => window.__catman.tick() > 120);
-  await page.screenshot({ path: info.outputPath('flat.png') });
-  await page.keyboard.press('v');
   expect(await page.evaluate(() => window.__catman.view())).toBe('tilt');
-  await page.waitForFunction(() => window.__catman.tick() > 400);
-  await page.screenshot({ path: info.outputPath('tilt.png') });
   await expect(page.getByRole('button', { name: 'Switch to top-down view' })).toBeVisible();
+  await page.getByRole('button', { name: 'Play' }).click();
+  await page.waitForFunction(() => window.__catman.tick() > 700); // a gate pair on screen
+  await page.screenshot({ path: info.outputPath('tilt.png') });
+  await page.keyboard.press('v');
+  expect(await page.evaluate(() => window.__catman.view())).toBe('flat');
+  await page.screenshot({ path: info.outputPath('flat.png') });
+  await expect(page.getByRole('button', { name: 'Switch to 2.5D view' })).toBeVisible();
   await page.goto('/?s=view1');
   await hooks(page);
-  expect(await page.evaluate(() => window.__catman.view())).toBe('tilt');
-  await page.goto('/?s=view1&view=flat');
-  await hooks(page);
   expect(await page.evaluate(() => window.__catman.view())).toBe('flat');
-  await page.getByRole('button', { name: 'Switch to 2.5D view' }).click();
+  await page.goto('/?s=view1&view=tilt');
+  await hooks(page);
   expect(await page.evaluate(() => window.__catman.view())).toBe('tilt');
+  await page.getByRole('button', { name: 'Switch to top-down view' }).click();
+  expect(await page.evaluate(() => window.__catman.view())).toBe('flat');
   expect(errors).toEqual([]);
 });
 

@@ -37,6 +37,7 @@ export type CoreEvent =
   | { t: 'damage'; x: number; y: number; amount: number }
   | { t: 'catHit'; hp: number }
   | { t: 'gateTaken'; side: 'left' | 'right'; gate: Gate; applied: StatGate | WeaponId }
+  | { t: 'gateMissed'; laneId: number }
   | { t: 'weaponChanged'; weapon: WeaponId }
   | { t: 'hordeCleared'; segmentK: number; ticksAlive: number }
   | { t: 'hordeEscaped'; segmentK: number }
