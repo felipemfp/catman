@@ -58,6 +58,7 @@
             ]
         }
     },
+    "preview_urls": true,
     "previews": {
         "kv_namespaces": [
             {
