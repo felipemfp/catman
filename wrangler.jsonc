@@ -10,7 +10,8 @@
     "routes": [
         {
             "pattern": "catman.felipemfp.dev",
-            "custom_domain": true
+            "custom_domain": true,
+            "previews_enabled": true
         }
     ],
     "kv_namespaces": [
