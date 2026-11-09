@@ -5,8 +5,8 @@
   "compatibility_date": "2026-11-08", // set on the scaffold day and committed; bump deliberately
   "assets": { "directory": "./dist" }, // no not_found_handling: unmatched paths must reach the Worker (ghost-api A7)
   // Custom domain, once felipemfp.dev is on this Cloudflare account (Felipe adds it; production change):
-  // "routes": [{ "pattern": "catman.felipemfp.dev", "custom_domain": true }],
-  "kv_namespaces": [{ "binding": "GHOSTS", "id": "00000000000000000000000000000000" }], // replace with the id from `wrangler kv namespace create GHOSTS` before deploy
+  "routes": [{ "pattern": "catman.felipemfp.dev", "custom_domain": true }],
+  "kv_namespaces": [{ "binding": "GHOSTS", "id": "c38210f59990442fb1cf79a2a613df20" }], // replace with the id from `wrangler kv namespace create GHOSTS` before deploy
   "ratelimits": [{ "name": "GHOST_POST_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   "observability": { "enabled": true },
   "env": {
