@@ -41,7 +41,7 @@ describe('T-config (F2–F4, F12, F14, F15): invariants on the live config', () 
     expect((W.catLineY - gateSpawnY) / 10 - config.boss.clearM - L.segmentM).toBeLessThanOrEqual(-(config.boss.warningM + 5));
   });
   it('marks align with segments', () => {
-    for (const m of [config.boss.everyM, config.gates.everyM, config.boss.clearM, L.warmupM]) expect(m % L.segmentM).toBe(0);
+    for (const m of [...config.boss.schedule.firstM, ...config.boss.schedule.gapNearM, ...config.boss.schedule.gapFarM, config.gates.everyM, config.boss.clearM, config.boss.telegraphM, L.warmupM]) expect(m % L.segmentM).toBe(0);
   });
   it('F3: free window lets the cat reach the next corridor', () => {
     const window = segU - L.bandU - config.cat.heightU;

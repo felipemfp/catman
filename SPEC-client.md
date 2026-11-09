@@ -204,3 +204,11 @@ There is no "force death" hook. A death that isn't in the input log would produc
 - **Narrow gate boxes** drawn at `gates.widthU`, and a "missed" popup on `gateMissed`.
 - **Gate labels are emoji + number, no words** (`src/client/labels.ts`): `📏 +30%` over `⏩ −10%`, additive stats as `🗡️ +1`, a weapon gate as its emoji alone (bigger). A client test asserts no letters in any label.
 - **No boss win/lose banner.** The "YOU x/s · NEED y/s · ON PACE / TOO WEAK" panel is gone; the boss warning is only the sound. The HUD still shows your DPS.
+
+## Boss telegraph (CORE_VERSION 10)
+
+- On `bossIncoming`, an emoji line appears at the top centre (40 px): `bossIcons(variant)` gives 👑 for plain, 🐀 for horde, ⚡ for frenzy, 👑👑 for twins, and joins combos with a space. There are no words, like the gate labels.
+- It stays visible through the fight and hides on `bossKilled` and when the screen leaves `run`.
+- Each variant plays its own sound at `bossIncoming` (`horde`, `frenzy`, `twins`; plain plays `warning`). `bossWarning` still plays `warning`.
+- Twins are drawn as two bosses, each with its own HP bar.
+- `ui().bossIcons` exposes the line (null when hidden). U-boss-icons tests the mapping, and E2E 13 checks it during the golden replay's boss 0 and that it is gone on the death screen.

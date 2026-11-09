@@ -18,5 +18,12 @@ export const TARGETS = {
   ratKillMin: 0.6,
   /** A run lasts: median at least this far for each weapon build. */
   minMedianDistanceM: 1500,
+  /**
+   * Bosses are a threat (2026-11-09, Felipe: "I hardly die to a boss"): share of weapon-build deaths that happen in a
+   * boss fight; each variant causes its share of those (no decorative variant) and is still won often (no wall).
+   */
+  bossDeathShareMin: 0.35,
+  variantDeathShareMin: 0.15,
+  variantWinMin: 0.5,
   maxSweepSeconds: 300,
 };

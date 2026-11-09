@@ -1,13 +1,13 @@
 // The one Phaser scene. All rules live in core: this file only samples input, calls step(), and draws view().
 import * as Phaser from 'phaser';
 import {
-  CORE_VERSION, bossHpFor, catTopY, config, createRecorder, createRun, hashState, simulateBossFight, step, toBase64,
+  BOSS_HORDE, BOSS_TWINS, CORE_VERSION, bossHpFor, bossVariant, variantHpMult, catTopY, config, createRecorder, createRun, hashState, simulateBossFight, step, toBase64,
   validateGhostPayload, view, type CoreEvent, type DeepReadonly, type EndCause, type GatePair, type InputLevel, type Run,
   type RunState, type WeaponId,
 } from '../core/index.ts';
 import { advance, TICK_MS } from './loop.ts';
 import { levelFromKeys, levelFromPointer } from './input.ts';
-import { gateLabel } from './labels.ts';
+import { bossIcons, gateLabel } from './labels.ts';
 import { formatScore } from './format.ts';
 import { createGhostCheck, ghostScoreAt, type GhostTrack } from './ghostcheck.ts';
 import { fetchGhost, verifyBody } from './ghostfetch.ts';
@@ -27,7 +27,7 @@ const COL = {
 const MY_GHOSTS = 'catman.myGhosts';
 
 export type Screen = 'title' | 'run' | 'death';
-export type UiState = { screen: Screen; deathScore: number | null; shareLink: string | null; errorText: string | null; ghostLine: string };
+export type UiState = { screen: Screen; deathScore: number | null; shareLink: string | null; errorText: string | null; ghostLine: string; bossIcons: string | null };
 type Ended = { cause: EndCause; score: number; tick: number };
 type Scripted = { levels: readonly InputLevel[]; i: number; resolve: (r: { hash: string; ended: Ended | null }) => void };
 
@@ -85,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   g!: Phaser.GameObjects.Graphics;
   hud!: Phaser.GameObjects.Text;
   hudRight!: Phaser.GameObjects.Text;
+  incoming!: Phaser.GameObjects.Text;
   gateTexts: Phaser.GameObjects.Text[] = [];
   damageNums: DamageNum[] = [];
   puffs: Puff[] = [];
@@ -112,6 +113,8 @@ export class GameScene extends Phaser.Scene {
     const style = { fontFamily: 'system-ui, sans-serif', fontSize: '22px', color: COL.text };
     this.hud = this.add.text(12, 10, '', style).setDepth(10);
     this.hudRight = this.add.text(W - 12, 10, '', { ...style, align: 'right' }).setOrigin(1, 0).setDepth(10);
+    // boss telegraph: the variant's emoji, top centre, from bossIncoming until the fight is won
+    this.incoming = this.add.text(W / 2, 16, '', { fontFamily: 'system-ui, sans-serif', fontSize: '40px' }).setOrigin(0.5, 0).setDepth(10).setVisible(false);
     // pools allocated once, up front: nothing pooled is created per frame (C8)
     for (let i = 0; i < 40; i++) {
       const text = this.add.text(0, 0, '', { fontFamily: 'system-ui, sans-serif', fontSize: '16px', color: '#ffe08a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5).setVisible(false);
@@ -186,6 +189,7 @@ export class GameScene extends Phaser.Scene {
     this.screen = s;
     this.hud.setVisible(s === 'run');
     this.hudRight.setVisible(s === 'run');
+    if (s !== 'run') this.incoming?.setVisible(false);
     this.onUi?.();
   }
 
@@ -200,6 +204,7 @@ export class GameScene extends Phaser.Scene {
       shareLink: this.shareLinkText,
       errorText: this.errorText,
       ghostLine: this.ghostLine(),
+      bossIcons: this.incoming?.visible ? this.incoming.text : null, // ui() can run before create()
     };
   }
 
@@ -368,6 +373,7 @@ export class GameScene extends Phaser.Scene {
           if (!this.reducedMotion) { this.cameras.main.shake(120, 4 / W); this.cameras.main.flash(80, 255, 255, 255); }
           break;
         case 'bossKilled':
+          this.incoming.setVisible(false);
           if (!this.reducedMotion) this.cameras.main.shake(300, 10 / W);
           break;
         case 'gateTaken': this.sfx.play('gate'); break;
@@ -378,6 +384,10 @@ export class GameScene extends Phaser.Scene {
           break;
         // no win/lose banner (Felipe): the warning is only a sound, the fight speaks for itself
         case 'bossWarning': this.sfx.play('warning'); break;
+        case 'bossIncoming':
+          this.incoming.setText(bossIcons(e.variant)).setVisible(true);
+          if (e.variant !== 0) this.sfx.play(e.variant & BOSS_TWINS ? 'twins' : e.variant & BOSS_HORDE ? 'horde' : 'frenzy'); // plain: bossWarning's sound is enough
+          break;
         default: break;
       }
     }
@@ -446,8 +456,7 @@ export class GameScene extends Phaser.Scene {
     const sprites: { y: number; draw: () => void }[] = [];
     for (const t of v.tunas) sprites.push({ y: t.y, draw: () => this.at(g, t.x, t.y, () => this.drawTuna(g, 0, 0)) });
     for (const r of v.rats) sprites.push({ y: r.y, draw: () => this.at(g, r.x, r.y, () => this.drawRat(g, 0, 0, 1)) });
-    const boss = v.boss;
-    if (boss) sprites.push({ y: boss.y, draw: () => this.at(g, boss.x, boss.y, () => this.drawBoss(g, 0, 0, boss.hp / boss.maxHp)) });
+    for (const b of [v.boss, v.twin]) if (b) sprites.push({ y: b.y, draw: () => this.at(g, b.x, b.y, () => this.drawBoss(g, 0, 0, b.hp / b.maxHp)) });
     sprites.sort((a, b) => a.y - b.y);
     for (const s of sprites) s.draw();
     this.drawShots(g, v);
@@ -473,7 +482,7 @@ export class GameScene extends Phaser.Scene {
     const key = `${v.cat.weapon}|${v.bossesSpawned}|${JSON.stringify(v.cat.mods)}`;
     if (key !== this.dpsKey) {
       this.dpsKey = key;
-      const r = simulateBossFight({ ...v.cat.mods }, v.cat.weapon, bossHpFor(v.bossesSpawned), W / 2);
+      const r = simulateBossFight({ ...v.cat.mods }, v.cat.weapon, bossHpFor(v.bossesSpawned) * variantHpMult(bossVariant(v.seed, v.bossesSpawned)) * (bossVariant(v.seed, v.bossesSpawned) & BOSS_TWINS ? 2 : 1), W / 2);
       this.dpsText = `${Math.round(r.damageByReach / (r.reachTick / 60))}/s`;
     }
     let ghostLine = '';

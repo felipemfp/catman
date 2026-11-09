@@ -1,5 +1,5 @@
 import { describe, expect, inject, it } from 'vitest';
-import { config, createRun, generateSegment, simulateBossFight, step, view, type Mods, type WeaponId } from '../core/index.ts';
+import { bossMarkK, config, createRun, generateSegment, simulateBossFight, step, view, type Mods, type WeaponId } from '../core/index.ts';
 import { runFromScenario } from '../core/testing.ts';
 import { sweep } from './sweep.ts';
 import { check, dominates, summarize, toCsv, type BuildSummary } from './report.ts';
@@ -56,14 +56,14 @@ describe('cli', () => {
   });
 });
 
-const bossK = config.boss.everyM / config.lane.segmentM;
 
 /** A real run into boss 0 with HP set via nextBossHp: does the warning's onPace match the outcome? */
 function readoutAgrees(seed: string, weapon: WeaponId, mods: Partial<Mods>, hpFactor: number): { onPace: boolean; died: boolean } {
+  const bossK = bossMarkK(seed, 0);
   const bossX = generateSegment(seed, bossK).bossX!;
   const m = { damageMult: 1, fireRateMult: 1, rangeMult: 1, pierceAdd: 0, projectilesAdd: 0, moveSpeedMult: 1, ...mods };
   const base = simulateBossFight(m, weapon, 1e12, bossX).damageByReach;
-  const run = runFromScenario({ seed, distanceM: 450, weapon, mods, hp: 1e9, catX: bossX, nextBossHp: base * hpFactor });
+  const run = runFromScenario({ seed, distanceM: bossK * config.lane.segmentM - 50, weapon, mods, hp: 1e9, catX: bossX, nextBossHp: base * hpFactor });
   let onPace: boolean | null = null;
   let died = false;
   for (let t = 0; t < 3000 && view(run).over === null; t++) {
@@ -117,7 +117,14 @@ describe('check: casual targets', () => {
     ...fake('pencil', 0.7, 0.9), distanceM: { median: 2000, p10: 1000, p90: 3000 },
     bossKillRate: [{ rate: 0.9, n: 900 }, { rate: 0.6, n: 500 }], bossKillRateHolding: [{ rate: 0.8, n: 100 }], ...over,
   });
-  const lines = (b: BuildSummary) => check({ builds: [b] } as Parameters<typeof check>[0], 1).filter((l) => !l.target.includes('elapsed'));
+  type Fights = Parameters<typeof check>[0]['fights'];
+  const v = (name: Fights['variants'][number]['name'], win: number, share: number) =>
+    ({ name, reached: 100, won: win * 100, winRate: { rate: win, n: 100 }, deaths: share * 100, deathShare: { rate: share, n: 100 } });
+  const okFights = (over: Partial<Record<'share' | 'horde' | 'hordeWin', number>> = {}): Fights => ({
+    deaths: 100, fightDeaths: 40, bossDeathShare: { rate: over.share ?? 0.4, n: 100 },
+    variants: [v('plain', 0.9, 0.3), v('horde', over.hordeWin ?? 0.8, over.horde ?? 0.2), v('frenzy', 0.8, 0.2), v('twins', 0.8, 0.3)],
+  });
+  const lines = (b: BuildSummary, fights: Fights = okFights()) => check({ builds: [b], fights }, 1).filter((l) => !l.target.includes('elapsed'));
   it('a build meeting every target passes every line', () => {
     expect(lines(mk({})).filter((l) => !l.pass)).toEqual([]);
   });
@@ -128,6 +135,12 @@ describe('check: casual targets', () => {
     expect(failing(mk({ bossKillRateHolding: [{ rate: 0.74, n: 100 }] }))).toEqual(['bossKillRateHolding[0]']);
     expect(failing(mk({ distanceM: { median: 1499, p10: 1000, p90: 3000 } }))).toEqual(['median']);
     expect(failing(mk({ bossKillRate: [{ rate: 0.99, n: 900 }, { rate: 0.6, n: 500 }] }))).toEqual(['bossKillRate[0]']);
+  });
+  it('boss-fight lines fail on their own (CORE_VERSION 10)', () => {
+    const failing = (f: Fights) => lines(mk({}), f).filter((l) => !l.pass).map((l) => l.target);
+    expect(failing(okFights({ share: 0.34 }))).toEqual([expect.stringMatching(/^boss fights cause/)]);
+    expect(failing(okFights({ horde: 0.14 }))).toEqual([expect.stringMatching(/^horde fights cause/)]);
+    expect(failing(okFights({ hordeWin: 0.49 }))).toEqual([expect.stringMatching(/^horde fights won/)]);
   });
   it('the holding line is skipped below holdingMinN', () => {
     expect(lines(mk({ bossKillRateHolding: [{ rate: 0, n: 29 }] })).some((l) => l.target.includes('Holding'))).toBe(false);
