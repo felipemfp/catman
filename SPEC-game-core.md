@@ -91,7 +91,7 @@ Consumers:
 2. Clear zone or warm-up → empty.
 3. Gate mark → one gate pair at `dy = gates.dyU`, no rats.
 4. **Gate buffer:** the segments directly before and after a gate segment that actually spawns a gate (k − 1, k + 1) are empty. A gate mark suppressed by a clear zone creates no buffers. That gives the cat time to cross the full width to either half, and back to the next corridor (F15, lateral).
-5. Otherwise → empty with probability `lane.emptyChance(d) = max(0.1, 0.4 − d/2000)` (d = segment start in m); else one formation from `lane.formationWeights` (column 0.4, swarm 0.4, wall 0.2).
+5. Otherwise → empty with probability `lane.emptyChance(d) = max(0.1, 0.4 − d/2000)` (d = segment start in m); else one formation from `lane.formationWeights` (column 0.5, swarm 0.4, wall 0.1 since CORE_VERSION 4).
 
 **Formations.** A rat is **in the corridor** if `|x − cx(k)| < corridorHalfU + rat.sizeU / 2`. Such positions are never used.
 
@@ -405,7 +405,7 @@ type Fixture = { coreVersion: number; seed: string; levels: InputLevel[]; ticks:
 
 ## Starting tunables (`src/core/config.ts`)
 
-Starting values only. balance-sim tunes them, no test pins them, and any change bumps `CORE_VERSION`. T-config asserts the invariants below for whatever values are present.
+Starting values only. balance-sim tunes them, no test pins them, and any change bumps `CORE_VERSION`. T-config asserts the invariants below for whatever values are present. `src/core/config.ts` is the source of truth for current values; the casual retune (CORE_VERSION 4) changed scroll, rat, boss, gate debuffs and every weapon, see SPEC-balance-sim § Casual retune.
 
 | Group | Keys → start |
 |---|---|

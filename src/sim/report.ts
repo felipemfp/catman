@@ -8,6 +8,8 @@ export type BuildSummary = {
   build: Build; runs: number;
   distanceM: { median: number; p10: number; p90: number };
   hordeClearRate: Rate;
+  /** Rats killed / rats that appeared, pooled over runs. */
+  ratKillRate: Rate;
   bossKillRate: Rate[]; bossKillRateHolding: Rate[];
   cause: Record<string, number>;
   gatePicks: Record<string, number>;
@@ -20,7 +22,7 @@ export function sortRows(rows: RunRow[]): RunRow[] {
   return rows.slice().sort((x, y) => order(x.build) - order(y.build) || x.seedIndex - y.seedIndex);
 }
 
-const CSV_COLS = ['build', 'seedIndex', 'seed', 'ticks', 'distanceM', 'score', 'cause', 'bossesKilled', 'reachedBoss0', 'killedBoss0', 'hordesCleared', 'hordesEscaped', 'gatesTaken', 'finalWeapon'] as const;
+const CSV_COLS = ['build', 'seedIndex', 'seed', 'ticks', 'distanceM', 'score', 'cause', 'bossesKilled', 'reachedBoss0', 'killedBoss0', 'hordesCleared', 'hordesEscaped', 'gatesTaken', 'finalWeapon', 'ratsSeen', 'ratsKilled'] as const;
 
 export function toCsv(rows: RunRow[]): string {
   const lines = [CSV_COLS.join(',')];
@@ -70,6 +72,7 @@ export function summarize(rows: RunRow[]): Summary {
       build, runs: rs.length,
       distanceM: { median: quantile(d, 0.5), p10: quantile(d, 0.1), p90: quantile(d, 0.9) },
       hordeClearRate: rate(cleared, cleared + escaped),
+      ratKillRate: rate(rs.reduce((s, r) => s + r.ratsKilled, 0), rs.reduce((s, r) => s + r.ratsSeen, 0)),
       bossKillRate: kill, bossKillRateHolding: killHold,
       cause: sortedRecord(cause), gatePicks: sortedRecord(picks),
     });
@@ -116,6 +119,20 @@ export function check(s: Summary, elapsedS: number): CheckLine[] {
   for (const b of weapons) {
     const k = b.bossKillRate[0]?.rate ?? null;
     lines.push({ target: `${b.build} bossKillRate[0] in [${klo}, ${khi}]`, value: k === null ? 'n/a' : k.toFixed(3), pass: k !== null && k >= klo && k <= khi });
+  }
+  const fmt = (x: number | null) => (x === null ? 'n/a' : x.toFixed(3));
+  for (const b of weapons) {
+    const h = b.bossKillRateHolding[0];
+    const hn = h?.n ?? 0;
+    const hr = h?.rate ?? null;
+    if (hn >= TARGETS.holdingMinN) {
+      lines.push({ target: `${b.build} bossKillRateHolding[0] ≥ ${TARGETS.boss0HoldingMin} (n=${hn})`, value: fmt(hr), pass: hr !== null && hr >= TARGETS.boss0HoldingMin });
+    }
+    const k1 = b.bossKillRate[1]?.rate ?? null;
+    lines.push({ target: `${b.build} bossKillRate[1] ≥ ${TARGETS.boss1KillMin}`, value: fmt(k1), pass: k1 !== null && k1 >= TARGETS.boss1KillMin });
+    const rk = b.ratKillRate.rate;
+    lines.push({ target: `${b.build} ratKillRate ≥ ${TARGETS.ratKillMin}`, value: fmt(rk), pass: rk !== null && rk >= TARGETS.ratKillMin });
+    lines.push({ target: `${b.build} median distance ≥ ${TARGETS.minMedianDistanceM} m`, value: String(b.distanceM.median), pass: b.distanceM.median >= TARGETS.minMedianDistanceM });
   }
   lines.push({ target: `sweep elapsed ≤ ${TARGETS.maxSweepSeconds} s`, value: elapsedS.toFixed(1), pass: elapsedS <= TARGETS.maxSweepSeconds });
   return lines;
