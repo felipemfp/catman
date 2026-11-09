@@ -1,6 +1,6 @@
 // Gate labels (C5): every half has an emoji and a signed number per stat change; colour is extra.
 // No words: gates are narrow (CORE_VERSION 9), so a line is "📏 +30%" or "🗡️ +1", and a weapon is its emoji.
-import { isAdditive, type Gate, type StatGate, type StatKey, type WeaponId } from '../core/index.ts';
+import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS, isAdditive, type Gate, type StatGate, type StatKey, type WeaponId } from '../core/index.ts';
 
 export type IconId = StatKey | WeaponId;
 export type GateLabel = { icons: IconId[]; signs: ('+' | '−')[]; text: string; buff: boolean[] };
@@ -34,4 +34,13 @@ export function gateLabel(gate: Gate, held: WeaponId): GateLabel {
   if (gate.kind === 'stat') return statLabel(gate);
   if (gate.weapon === held) return statLabel(gate.fallback);
   return { icons: [gate.weapon], signs: [], text: iconGlyph(gate.weapon), buff: [] };
+}
+
+/** Boss telegraph: emoji only, like the gates. 👑 plain; 🐀 horde, ⚡ frenzy, 👑👑 twins, combined for combos. */
+export function bossIcons(variant: number): string {
+  const parts: string[] = [];
+  if (variant & BOSS_TWINS) parts.push('👑👑');
+  if (variant & BOSS_HORDE) parts.push('🐀');
+  if (variant & BOSS_FRENZY) parts.push('⚡');
+  return parts.length === 0 ? '👑' : parts.join(' ');
 }

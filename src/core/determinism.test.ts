@@ -1,6 +1,6 @@
 import { describe, expect, inject, it } from 'vitest';
 import type { CoreEvent, InputLevel } from './types.ts';
-import { createRun, generateSegment, hashState, step, view, createRecorder, decodeInputLog, config, simulateBossFight } from './index.ts';
+import { bossMarkK, createRun, generateSegment, hashState, step, view, createRecorder, decodeInputLog, config, simulateBossFight } from './index.ts';
 import { defaultMods } from './stats.ts';
 import { runFromScenario } from './testing.ts';
 import { pattern } from './test-util.test-helpers.ts';
@@ -59,11 +59,12 @@ describe('T-lane (F2): the lane is independent of how long a boss took', () => {
   const endM = full ? 2700 : 700;
   for (const seed of seeds) {
     it(seed, () => {
-      const bossX = generateSegment(seed, config.boss.everyM / config.lane.segmentM).bossX!;
+      const bossK = bossMarkK(seed, 0);
+      const bossX = generateSegment(seed, bossK).bossX!;
       // boss HP just under what base laser deals by reach: the slow run kills late, the ×20 run kills early
       const hp = 0.9 * simulateBossFight(defaultMods(), 'laser', 1e12, bossX).damageByReach;
       const mk = (damageMult: number) =>
-        runFromScenario({ seed, distanceM: 450, weapon: 'laser', mods: { damageMult }, hp: 1e9, catX: bossX, nextBossHp: hp });
+        runFromScenario({ seed, distanceM: bossK * config.lane.segmentM - 50, weapon: 'laser', mods: { damageMult }, hp: 1e9, catX: bossX, nextBossHp: hp });
       const fast = mk(20);
       const slow = mk(1);
       type Snap = { dist: number; ents: Map<number, string>; seen: Set<number> };
@@ -71,7 +72,7 @@ describe('T-lane (F2): the lane is independent of how long a boss took', () => {
         const dists: number[] = [];
         const snaps: Snap[] = [];
         const seen = new Set<number>();
-        let nextCp = 460;
+        let nextCp = bossK * config.lane.segmentM - 40;
         let killTick = -1;
         let spawnTick = -1;
         for (let t = 0; t < 200000; t++) {
@@ -80,11 +81,11 @@ describe('T-lane (F2): the lane is independent of how long a boss took', () => {
           if (ev.some((e) => e.t === 'bossKilled') && killTick < 0) killTick = view(run).tick - spawnTick;
           const v = view(run);
           if (dists[dists.length - 1] !== v.distanceU) dists.push(v.distanceU);
-          for (const r of v.rats) seen.add(r.laneId);
+          for (const r of v.rats) if (r.segmentK >= -1) seen.add(r.laneId); // fight-wave rats (segmentK < -1, CORE_VERSION 10) belong to the fight, not the lane
           for (const g of v.gates) seen.add(g.laneId);
           if (v.distanceU / 10 >= nextCp) {
             const ents = new Map<number, string>();
-            for (const r of v.rats) ents.set(r.laneId, `${r.x}:${r.y}`);
+            for (const r of v.rats) if (r.segmentK >= -1) ents.set(r.laneId, `${r.x}:${r.y}`);
             for (const g of v.gates) ents.set(g.laneId, `${g.y}`);
             snaps.push({ dist: v.distanceU, ents, seen: new Set(seen) });
             nextCp += 10;

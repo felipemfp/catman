@@ -26,22 +26,80 @@ export function corridorX(seed: string, k: number): number {
   return a + ((b - a) * (k % P)) / P;
 }
 
-export function isBossSegment(k: number): boolean {
-  const dM = k * L.segmentM;
-  return dM > 0 && dM % config.boss.everyM === 0;
+export const BOSS_HORDE = 1;
+export const BOSS_FRENZY = 2;
+export const BOSS_TWINS = 4;
+const VARIANT_BITS = [BOSS_HORDE, BOSS_FRENZY, BOSS_TWINS] as const;
+
+/** Boss marks (segment indexes) per seed, grown on demand. Pure: a cache of a function of (seed, i). */
+const marks = new Map<string, number[]>();
+
+/** Segment index of boss i's mark (SPEC-game-core § Boss schedule). */
+export function bossMarkK(seed: string, i: number): number {
+  let a = marks.get(seed);
+  if (a === undefined) {
+    if (marks.size >= 256) marks.clear();
+    a = [];
+    marks.set(seed, a);
+  }
+  const S = config.boss.schedule;
+  const seg = L.segmentM;
+  while (a.length <= i) {
+    const j = a.length;
+    const rng = createRng(seed + ':boss:' + j);
+    if (j === 0) {
+      const lo = S.firstM[0] / seg;
+      a.push(lo + randInt(rng, S.firstM[1] / seg - lo + 1));
+    } else {
+      const prev = a[j - 1]!;
+      const t = Math.min(1, (prev * seg) / S.farM);
+      const lo = Math.round((S.gapNearM[0] + (S.gapFarM[0] - S.gapNearM[0]) * t) / seg);
+      const hi = Math.round((S.gapNearM[1] + (S.gapFarM[1] - S.gapNearM[1]) * t) / seg);
+      a.push(prev + lo + randInt(rng, hi - lo + 1));
+    }
+  }
+  return a[i]!;
 }
 
-/** Boss index of a boss segment (0 for the first mark). */
-export function bossIndexOfSegment(k: number): number {
-  return (k * L.segmentM) / config.boss.everyM - 1;
+/** Index of the first boss whose mark is at or after segment k. */
+export function nextBossIndex(seed: string, k: number): number {
+  let i = 0;
+  while (bossMarkK(seed, i) < k) i++;
+  return i;
 }
 
-export function inClearZone(k: number): boolean {
-  const dM = k * L.segmentM;
-  const every = config.boss.everyM;
-  // Smallest boss mark B with B > dM − segmentM; the zone is [B − clearM, B + segmentM).
-  const B = (Math.floor((dM - L.segmentM) / every) + 1) * every;
-  return B >= every && dM >= B - config.boss.clearM && dM < B + L.segmentM;
+/** Number of boss marks at or before distance dM. */
+export function bossesBefore(seed: string, dM: number): number {
+  let i = 0;
+  while (bossMarkK(seed, i) * L.segmentM <= dM) i++;
+  return i;
+}
+
+export function isBossSegment(seed: string, k: number): boolean {
+  return k > 0 && bossMarkK(seed, nextBossIndex(seed, k)) === k;
+}
+
+/** Boss index of a boss segment. */
+export function bossIndexOfSegment(seed: string, k: number): number {
+  return nextBossIndex(seed, k);
+}
+
+export function inClearZone(seed: string, k: number): boolean {
+  // the next mark B at or after k; the zone is [B - clearM, B]
+  const B = bossMarkK(seed, nextBossIndex(seed, k));
+  return k >= B - config.boss.clearM / L.segmentM;
+}
+
+/** Variant flags of boss i: 0 for boss 0, then a seeded roll whose chance ramps (SPEC-game-core § Boss variants). */
+export function bossVariant(seed: string, i: number): number {
+  if (i <= 0) return 0;
+  const V = config.boss.variants;
+  const rng = createRng(seed + ':bossv:' + i);
+  if (rng() >= Math.min(V.chanceMax, V.chanceStart + V.chanceStep * (i - 1))) return 0;
+  const a = randInt(rng, VARIANT_BITS.length);
+  let f: number = VARIANT_BITS[a]!;
+  if (i >= V.comboFrom && rng() < V.comboChance) f |= VARIANT_BITS[(a + 1 + randInt(rng, VARIANT_BITS.length - 1)) % VARIANT_BITS.length]!;
+  return f;
 }
 
 function isWarmup(k: number): boolean {
@@ -54,8 +112,8 @@ function isGateMark(k: number): boolean {
 }
 
 /** True when segment k actually spawns a gate pair. */
-export function spawnsGate(k: number): boolean {
-  return k >= 0 && !isBossSegment(k) && !inClearZone(k) && !isWarmup(k) && isGateMark(k);
+export function spawnsGate(seed: string, k: number): boolean {
+  return k >= 0 && !isWarmup(k) && isGateMark(k) && !isBossSegment(seed, k) && !inClearZone(seed, k);
 }
 
 export function ratHpAt(dM: number): number {
@@ -133,7 +191,7 @@ export function gateValue(g: Gate): number {
 
 /** Guard horde for the gate pair two segments ahead: rows across its better half, skipping the corridor. */
 function placeGuard(seed: string, k: number, cx: number, out: SegmentContent): boolean {
-  if (!spawnsGate(k + 2)) return false;
+  if (!spawnsGate(seed, k + 2)) return false;
   const pair = generateSegment(seed, k + 2).gate!;
   const diff = gateValue(pair.left) - gateValue(pair.right);
   if (diff === 0) return false;
@@ -169,19 +227,19 @@ export function generateSegment(seed: string, k: number): SegmentContent {
   const size = config.rat.sizeU;
   const dM = k * L.segmentM;
 
-  if (isBossSegment(k)) {
+  if (isBossSegment(seed, k)) {
     const half = config.boss.sizeU / 2 + config.boss.xMarginU;
     out.kind = 'boss';
     out.bossX = randReal(rng, half, W - half);
     return out;
   }
-  if (inClearZone(k) || isWarmup(k)) return out;
+  if (isWarmup(k) || inClearZone(seed, k)) return out;
   if (isGateMark(k)) {
     out.kind = 'gate';
     out.gate = drawGatePair(rng, k);
     return out;
   }
-  if (spawnsGate(k - 1) || spawnsGate(k + 1)) return out;
+  if (spawnsGate(seed, k - 1) || spawnsGate(seed, k + 1)) return out;
   if (placeGuard(seed, k, cx, out)) return out;
   if (isTunaMark(k) && placeTuna(seed, k, cx, out)) return out;
 

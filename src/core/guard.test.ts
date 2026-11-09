@@ -21,7 +21,7 @@ describe('gate guards', () => {
     let even = 0;
     for (const seed of seeds) {
       for (let k = 2; k < 4000 / config.lane.segmentM; k++) {
-        if (!spawnsGate(k) || isBossSegment(k - 2) || inClearZone(k - 2)) continue;
+        if (!spawnsGate(seed, k) || isBossSegment(seed, k - 2) || inClearZone(seed, k - 2)) continue;
         const pair = generateSegment(seed, k).gate!;
         const diff = gateValue(pair.left) - gateValue(pair.right);
         const g = generateSegment(seed, k - 2);
@@ -52,7 +52,7 @@ describe('gate guards', () => {
     let seen = 0;
     for (const seed of seeds) {
       for (let k = 2; k < 4000 / config.lane.segmentM; k++) {
-        if (!spawnsGate(k) || isBossSegment(k - 2) || inClearZone(k - 2)) continue;
+        if (!spawnsGate(seed, k) || isBossSegment(seed, k - 2) || inClearZone(seed, k - 2)) continue;
         const pair = generateSegment(seed, k).gate!;
         const d = Math.abs(gateValue(pair.left) - gateValue(pair.right));
         if (d !== 2) continue;

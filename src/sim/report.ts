@@ -2,6 +2,7 @@
 import { BOSS_SLOTS, type RunRow } from './run.ts';
 import { BUILDS, type Build } from './bots.ts';
 import { TARGETS } from './targets.ts';
+import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS } from '../core/index.ts';
 
 export type Rate = { rate: number | null; n: number };
 export type BuildSummary = {
@@ -14,7 +15,36 @@ export type BuildSummary = {
   cause: Record<string, number>;
   gatePicks: Record<string, number>;
 };
-export type Summary = { builds: BuildSummary[] };
+/** Boss-fight outcomes pooled over the weapon builds (not random). A combo fight counts toward each of its variants. */
+export type FightSummary = {
+  deaths: number; fightDeaths: number; bossDeathShare: Rate;
+  variants: { name: VariantName; reached: number; won: number; winRate: Rate; deaths: number; deathShare: Rate }[];
+};
+export type VariantName = 'plain' | 'horde' | 'frenzy' | 'twins';
+export type Summary = { builds: BuildSummary[]; fights: FightSummary };
+
+const VARIANTS: { name: VariantName; has: (f: number) => boolean }[] = [
+  { name: 'plain', has: (f) => f === 0 },
+  { name: 'horde', has: (f) => (f & BOSS_HORDE) !== 0 },
+  { name: 'frenzy', has: (f) => (f & BOSS_FRENZY) !== 0 },
+  { name: 'twins', has: (f) => (f & BOSS_TWINS) !== 0 },
+];
+
+function summarizeFights(rows: RunRow[]): FightSummary {
+  const rs = rows.filter((r) => r.build !== 'random');
+  const dead = rs.filter((r) => r.cause === 'rats' || r.cause === 'boss');
+  const inFight = dead.filter((r) => r.deathFight >= 0);
+  return {
+    deaths: dead.length, fightDeaths: inFight.length, bossDeathShare: rate(inFight.length, dead.length),
+    variants: VARIANTS.map(({ name, has }) => {
+      let reached = 0;
+      let won = 0;
+      for (const r of rs) for (const f of r.fights) if (has(f.variant)) { reached++; if (f.won) won++; }
+      const deaths = inFight.filter((r) => has(r.deathFight)).length;
+      return { name, reached, won, winRate: rate(won, reached), deaths, deathShare: rate(deaths, inFight.length) };
+    }),
+  };
+}
 export type Dominance = { a: Build; b: Build; hordeClearDelta: number; boss0Delta: number };
 
 export function sortRows(rows: RunRow[]): RunRow[] {
@@ -22,7 +52,7 @@ export function sortRows(rows: RunRow[]): RunRow[] {
   return rows.slice().sort((x, y) => order(x.build) - order(y.build) || x.seedIndex - y.seedIndex);
 }
 
-const CSV_COLS = ['build', 'seedIndex', 'seed', 'ticks', 'distanceM', 'score', 'cause', 'bossesKilled', 'reachedBoss0', 'killedBoss0', 'hordesCleared', 'hordesEscaped', 'gatesTaken', 'finalWeapon', 'ratsSeen', 'ratsKilled', 'tunaHeals'] as const;
+const CSV_COLS = ['build', 'seedIndex', 'seed', 'ticks', 'distanceM', 'score', 'cause', 'bossesKilled', 'reachedBoss0', 'killedBoss0', 'hordesCleared', 'hordesEscaped', 'gatesTaken', 'finalWeapon', 'ratsSeen', 'ratsKilled', 'tunaHeals', 'deathFight'] as const;
 
 export function toCsv(rows: RunRow[]): string {
   const lines = [CSV_COLS.join(',')];
@@ -77,7 +107,7 @@ export function summarize(rows: RunRow[]): Summary {
       cause: sortedRecord(cause), gatePicks: sortedRecord(picks),
     });
   }
-  return { builds };
+  return { builds, fights: summarizeFights(rows) };
 }
 
 /** A dominates B iff it is ahead by ≥ margin on both horde clear rate and boss-0 kill rate. `random` never counts. */
@@ -133,6 +163,13 @@ export function check(s: Summary, elapsedS: number): CheckLine[] {
     const rk = b.ratKillRate.rate;
     lines.push({ target: `${b.build} ratKillRate ≥ ${TARGETS.ratKillMin}`, value: fmt(rk), pass: rk !== null && rk >= TARGETS.ratKillMin });
     lines.push({ target: `${b.build} median distance ≥ ${TARGETS.minMedianDistanceM} m`, value: String(b.distanceM.median), pass: b.distanceM.median >= TARGETS.minMedianDistanceM });
+  }
+  const F = s.fights;
+  lines.push({ target: `boss fights cause ≥ ${TARGETS.bossDeathShareMin} of deaths`, value: fmt(F.bossDeathShare.rate), pass: (F.bossDeathShare.rate ?? 0) >= TARGETS.bossDeathShareMin });
+  for (const v of F.variants) {
+    if (v.name === 'plain') continue;
+    lines.push({ target: `${v.name} fights cause ≥ ${TARGETS.variantDeathShareMin} of boss deaths`, value: fmt(v.deathShare.rate), pass: (v.deathShare.rate ?? 0) >= TARGETS.variantDeathShareMin });
+    lines.push({ target: `${v.name} fights won ≥ ${TARGETS.variantWinMin} (n=${v.reached})`, value: fmt(v.winRate.rate), pass: (v.winRate.rate ?? 0) >= TARGETS.variantWinMin });
   }
   lines.push({ target: `sweep elapsed ≤ ${TARGETS.maxSweepSeconds} s`, value: elapsedS.toFixed(1), pass: elapsedS <= TARGETS.maxSweepSeconds });
   return lines;

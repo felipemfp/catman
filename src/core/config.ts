@@ -65,7 +65,25 @@ export const config = deepFreeze({
       { fromM: 3000, buffMult: 1.5, buffAdd: 2, debuffMult: 0.8 },
     ],
   },
-  boss: { everyM: 500, clearM: 150, warningM: 30, sizeU: 120, speedUPerTick: 1.2, baseHp: 650, hpGrowth: 1.1, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.15,
+  boss: { clearM: 150, warningM: 30,
+    /**
+     * Seeded schedule (SPEC-game-core § Boss schedule): boss 0 lands in firstM; each next gap is drawn in a range that
+     * slides from gapNearM to gapFarM as the previous mark goes from 0 to farM. All in whole segments.
+     */
+    schedule: { firstM: [450, 550] as const, gapNearM: [450, 700] as const, gapFarM: [350, 550] as const, farM: 3000 },
+    /** The variant icon shows this far before the mark. */
+    telegraphM: 150,
+    /** Boss i ≥ 1 rolls a variant with chance min(chanceMax, chanceStart + chanceStep·(i − 1)); from comboFrom, a second one with comboChance. */
+    variants: { chanceStart: 0.3, chanceStep: 0.2, chanceMax: 0.9, comboFrom: 3, comboChance: 0.4,
+      /** HP multiplier per variant (twins: each of the two). */
+      hpMult: { horde: 0.9, frenzy: 0.85, twins: 0.7 } },
+    /**
+     * Fight waves. Interval goes from everyTicks (full HP) to minEveryTicks (no HP left).
+     * horde: a row of wall slots with a gap. frenzy: a few fast rats that home on the cat.
+     */
+    horde: { firstTicks: 40, everyTicks: 100, minEveryTicks: 50, gapSlots: 4, speedU: 2.8, homeFrac: 0.25 },
+    frenzy: { firstTicks: 60, everyTicks: 120, minEveryTicks: 60, rats: 5, speedU: 5, homeFrac: 0.8 },
+    sizeU: 120, speedUPerTick: 1.2, baseHp: 650, hpGrowth: 1.1, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.15,
     /** Sideways tracking toward the cat, U per tick. */
     trackUPerTick: 0.8,
     /** Ticks without a hit before the boss speeds up; then +rageRampPerTick × base per tick, up to rageMax × base. */

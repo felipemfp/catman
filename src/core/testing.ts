@@ -3,7 +3,7 @@ import type { DeepReadonly, InputLevel, Mods, RunState, WeaponId } from './types
 import { config } from './config.ts';
 import { isSeed } from './ghost.ts';
 import { createState } from './step.ts';
-import { corridorX, segU } from './lane.ts';
+import { bossesBefore, bossMarkK, corridorX, segU } from './lane.ts';
 import { defaultMods } from './stats.ts';
 import { levelToward } from './cat.ts';
 import { type Run, wrapRun, internal } from './run.ts';
@@ -19,12 +19,15 @@ export function runFromScenario(sc: Scenario): Run {
   const s = createState(sc.seed);
   s.distanceU = sc.distanceM * 10;
   s.nextSegmentK = sc.distanceM / config.lane.segmentM;
-  const bosses = Math.floor(sc.distanceM / config.boss.everyM);
+  const bosses = bossesBefore(sc.seed, sc.distanceM);
   s.bossesSpawned = bosses;
   s.bossesKilled = bosses;
   let warned = -1;
-  for (let i = 0; (i + 1) * config.boss.everyM - config.boss.warningM <= sc.distanceM; i++) warned = i;
+  for (let i = 0; bossMarkK(sc.seed, i) * config.lane.segmentM - config.boss.warningM <= sc.distanceM; i++) warned = i;
   s.warnedForBoss = warned;
+  let told = -1;
+  for (let i = 0; bossMarkK(sc.seed, i) * config.lane.segmentM - config.boss.telegraphM <= sc.distanceM; i++) told = i;
+  s.telegraphedBoss = told;
   s.tick = sc.tick ?? 0;
   s.cat.weapon = sc.weapon ?? 'pencil';
   s.cat.mods = { ...defaultMods(), ...sc.mods };
@@ -35,7 +38,7 @@ export function runFromScenario(sc: Scenario): Run {
     s.rats.push({ laneId: 1e9 + i, segmentK: -1, x: r.x, baseY: r.y - s.distanceU, y: r.y, hp: r.hp });
   });
   (sc.tunas ?? []).forEach((t, i) => s.tunas.push({ id: 2e9 + i, x: t.x, baseY: t.y - s.distanceU, y: t.y }));
-  if (sc.boss) s.boss = { index: bosses, x: sc.boss.x, y: sc.boss.y, hp: sc.boss.hp, maxHp: sc.boss.hp, missTicks: 0 };
+  if (sc.boss) s.boss = { index: bosses, x: sc.boss.x, y: sc.boss.y, hp: sc.boss.hp, maxHp: sc.boss.hp, missTicks: 0, half: -1 };
   return wrapRun(s, { nextBossHp: sc.nextBossHp ?? null, gates: sc.gates !== false });
 }
 

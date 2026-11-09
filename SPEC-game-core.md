@@ -547,3 +547,51 @@ Felipe: reduce the gate size so the player has to position for it.
 - Step 7: when a pair crosses the cat line and the cat overlaps neither box (between them or outside), the pair resolves with a `gateMissed { laneId }` event and nothing is applied. Otherwise it's as before.
 - A still cat at x 270 now misses every gate and dies at the first boss (still-cat median 1172 → 500 m). The sim bots already steer to the box centres, so the sweep is unchanged.
 - Tests: T-once checks both box edges ±1 U, the seam and the outside for one event per pair. T-warning removes each boss outright (hp 0), since narrow gates can hand a corridor-following test cat a crippled build.
+
+## Boss schedule and variants (CORE_VERSION 10)
+
+Felipe: "I hardly die to a boss". Bosses no longer come every 500 m, and later ones bring variants. This section replaces `boss.everyM` everywhere above (`B = n × everyM`, the scenario's `floor(distanceM / everyM)`, the scratch fight's mark).
+
+**Schedule** (`lane.ts`, `config.boss.schedule`). A pure function of the seed, in whole segments:
+- `bossMarkK(seed, 0)` is drawn uniformly in `firstM` = [450, 550] m, from RNG `seed:boss:0`.
+- Gap i (from RNG `seed:boss:i`) is drawn uniformly in [lo, hi]. With `t = min(1, previous mark m / farM)`, lo and hi slide linearly from `gapNearM` [450, 700] to `gapFarM` [350, 550], rounded to segments. Late bosses come more often.
+- Marks are cached per seed (cleared at 256 seeds). That's a cache of a pure function, so lookup order does not matter (variants.test.ts).
+- `isBossSegment`, `inClearZone` and `spawnsGate` take the seed. The clear zone is `[B − clearM, B]` for the next mark B at or after k.
+
+**Variants** (`bossVariant(seed, i)`, bit flags: HORDE 1, FRENZY 2, TWINS 4).
+- Boss 0 is always plain.
+- Boss i ≥ 1 rolls on RNG `seed:bossv:i` with chance `min(0.9, 0.3 + 0.2 × (i − 1))`, then picks one of the three uniformly.
+- From boss 3 on, a second, different variant is added with chance 0.4.
+- Each boss gets `bossHpFor(i) × hpMult`, with hpMult = horde 0.9, frenzy 0.85, twins 0.7. The multipliers multiply for combos, and for twins they apply to each of the two.
+
+| Variant | Rule |
+|---|---|
+| 🐀 horde | During the fight, a row of the 15 wall slots minus a random run of `gapSlots` (4) spawns at the top, first after `firstTicks` (40), then every `round(min + (every − min) × hpLeft/maxHp)` ticks (100 → 50). The rows move `speedU` 2.8 per tick down and home by `homeFrac × speedU` above the lock line. |
+| ⚡ frenzy | Same mechanism, with `rats` 5 fast rats at seeded x, staggered by 40 U. `speedU` 5, `homeFrac` 0.8, every 120 → 60 ticks. |
+| 👑👑 twins | Two bosses at W/4 and 3W/4 (`half` 0 / 1). Each tracks the cat but is clamped to its own half (`x ≤ W/2 − size/2`, `x ≥ W/2 + size/2`), so no shot column hits both. Each has its own `missTicks` rage. If the main boss dies first, the twin takes the `boss` slot. The fight (`bossKilled`, +250, kill freeze) ends only when both are dead. Either one reaching the cat ends the run with cause `boss`. |
+
+**State.** These are hashed in this order, after `boss`:
+- `twin: Boss | null` (non-null implies `boss` is non-null)
+- `fight: Fight | null`, which holds `{ index, variant, maxHp, nextHordeTick, nextFrenzyTick, waves }`
+- after `bonusScore`: `telegraphedBoss` and `nextWaveId`
+- `Boss` gains `half` (−1 means it roams the whole lane)
+
+**Wave rats** have `segmentK` −2 (horde) or −3 (frenzy), no horde bookkeeping, and ids from 5e8 / 6e8. They move only while the fight is on (step 5, after the boss). After the fight they ride the lane like any rat. Waves use RNG `seed:wave:index:n`. The statue fight (`simulateBossFight`) has no `fight`, so it has no waves: its readout is exact for plain bosses and an estimate for variants.
+
+**Events.**
+- `bossIncoming { index, variant }` fires once per boss when `distanceM ≥ mark − telegraphM` (150 m). That is the start of the clear zone, so the player sees what's coming while the gates before it are still ahead.
+- `bossSpawned` gains `variant`.
+- `bossWarning` keeps its 30 m and its fields, measured against the seeded mark.
+
+**Tests** (variants.test.ts) cover:
+- the schedule's bounds, spread, purity and gate-free zones
+- the variant-roll rates and combos
+- the telegraph's timing and that it names the right variant
+- twins placement, half clamping, that one dead twin doesn't end the fight, and that either twin reaching the cat ends the run
+- the horde row and its gap, wave movement while the lane is stopped, and faster waves as HP drops
+- frenzy speed and homing
+- that no waves spawn in plain fights or after a fight
+
+Changes to existing tests:
+- Scenario tests start 50 m before `bossMarkK(seed, 0)` instead of at a fixed 450 m.
+- T-wall-rest needs ≥ 1 gate per seed: boss 0 can land at 450 m and clear the 300 m gate.

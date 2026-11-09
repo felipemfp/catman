@@ -1,5 +1,5 @@
 // FNV-1a 32 over RunState in types.ts field order. Numbers are hashed as raw f64 LE bytes.
-import type { Boss, Cat, Gate, GatePair, Horde, Mods, Projectile, Rat, RunState, StatGate, Tuna } from './types.ts';
+import type { Boss, Fight, Cat, Gate, GatePair, Horde, Mods, Projectile, Rat, RunState, StatGate, Tuna } from './types.ts';
 
 type H = { h: number; dv: DataView };
 
@@ -59,7 +59,11 @@ function projectile(s: H, p: Projectile): void {
 }
 function boss(s: H, b: Boss | null): void {
   if (b === null) { nul(s); return; }
-  num(s, b.index); num(s, b.x); num(s, b.y); num(s, b.hp); num(s, b.maxHp); num(s, b.missTicks);
+  num(s, b.index); num(s, b.x); num(s, b.y); num(s, b.hp); num(s, b.maxHp); num(s, b.missTicks); num(s, b.half);
+}
+function fight(s: H, f: Fight | null): void {
+  if (f === null) { nul(s); return; }
+  num(s, f.index); num(s, f.variant); num(s, f.maxHp); num(s, f.nextHordeTick); num(s, f.nextFrenzyTick); num(s, f.waves);
 }
 function horde(s: H, h: Horde): void {
   num(s, h.segmentK); num(s, h.alive); num(s, h.spawnTick);
@@ -78,9 +82,9 @@ export function hashRunState(st: RunState): string {
   if (st.over === null) nul(s); else str(s, st.over);
   cat(s, st.cat);
   arr(s, st.rats, rat); arr(s, st.gates, gatePair); arr(s, st.projectiles, projectile);
-  boss(s, st.boss); arr(s, st.hordes, horde);
+  boss(s, st.boss); boss(s, st.twin); fight(s, st.fight); arr(s, st.hordes, horde);
   num(s, st.nextSegmentK); num(s, st.nextProjectileId); num(s, st.bossesSpawned); num(s, st.bossesKilled);
   num(s, st.ratsKilled); num(s, st.score); num(s, st.warnedForBoss);
-  arr(s, st.tunas, tuna); num(s, st.bonusScore);
+  arr(s, st.tunas, tuna); num(s, st.bonusScore); num(s, st.telegraphedBoss); num(s, st.nextWaveId);
   return s.h.toString(16).padStart(8, '0');
 }

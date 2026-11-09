@@ -5,12 +5,13 @@ import { generateSegment, hashState, simulateBossFight, step, view, bossHpFor } 
 import { assertFiniteState, corridorFollower, runFromScenario, stateOf } from './testing.ts';
 import { stepCat } from './cat.ts';
 import { applyStatGate, catTopY, defaultMods } from './stats.ts';
-import { spawnsGate, segU } from './lane.ts';
+import { bossMarkK, spawnsGate as spawnsGateFor, segU } from './lane.ts';
 import { ofType } from './test-util.test-helpers.ts';
 
 const full = inject('full');
 const W = config.world;
-const bossK = config.boss.everyM / config.lane.segmentM;
+/** Boss 0's segment, and a start 50 m before it. */
+const boss0 = (seed: string) => { const k = bossMarkK(seed, 0); return { k, startM: k * config.lane.segmentM - 50 }; };
 
 function stepUntil(run: ReturnType<typeof runFromScenario>, pred: (ev: CoreEvent[]) => boolean, max = 5000, input: () => -4 | 0 | 4 = () => 0) {
   const all: CoreEvent[] = [];
@@ -30,8 +31,9 @@ describe('T-boss-reset (F6)', () => {
   const seeds = full ? Array.from({ length: 20 }, (_, i) => 'reset' + i) : ['reset0', 'reset1'];
   for (const b of builds) for (const seed of seeds) {
     it(`${b.weapon} ${JSON.stringify(b.mods)} ${seed}`, () => {
+      const { k: bossK, startM } = boss0(seed);
       const bossX = generateSegment(seed, bossK).bossX!;
-      const run = runFromScenario({ seed, distanceM: 450, weapon: b.weapon, mods: b.mods, hp: 1e9, catX: bossX });
+      const run = runFromScenario({ seed, distanceM: startM, weapon: b.weapon, mods: b.mods, hp: 1e9, catX: bossX });
       stepUntil(run, (ev) => ev.some((e) => e.t === 'bossSpawned'));
       const v = view(run);
       expect(v.boss).not.toBeNull();
@@ -72,8 +74,8 @@ describe('T-wall-rest (F15)', () => {
       // So: the last three gates whose window (through band g + 2) ends before homing starts.
       const lastK = Math.floor(config.rat.homing.startM / config.lane.segmentM) - 3;
       const gs: number[] = [];
-      for (let k = lastK; k > 0 && gs.length < 3; k--) if (spawnsGate(k)) gs.push(k);
-      expect(gs.length).toBeGreaterThanOrEqual(2);
+      for (let k = lastK; k > 0 && gs.length < 3; k--) if (spawnsGateFor(seed, k)) gs.push(k);
+      expect(gs.length).toBeGreaterThanOrEqual(1); // boss 0 can land at 450 m (CORE_VERSION 10), clearing the 300 m gate;
       for (const g of gs) {
         // start in the empty buffer before the gate, pinned to the left wall, from rest
         const run = runFromScenario({ seed, distanceM: (g - 1) * config.lane.segmentM, catX: 20 });
@@ -91,7 +93,7 @@ describe('T-wall-rest (F15)', () => {
         checked++;
       }
     }
-    expect(checked).toBeGreaterThanOrEqual(seeds.length * 2);
+    expect(checked).toBeGreaterThanOrEqual(seeds.length);
   });
 });
 
@@ -108,7 +110,7 @@ describe('T-once (F7) with narrow gates (CORE_VERSION 9)', () => {
     it(`cat parked at ${catX}: ${side ?? 'misses both halves'}, exactly one event per pair at max scroll`, () => {
       const s = config.scroll;
       let g = Math.ceil((s.maxUPerTick - s.baseUPerTick) / s.rampPerM / config.lane.segmentM);
-      while (!spawnsGate(g)) g++;
+      while (!spawnsGateFor('once0', g)) g++;
       const run = runFromScenario({ seed: 'once0', distanceM: (g - 1) * config.lane.segmentM, catX, hp: 1e9 });
       const before = { ...view(run).cat.mods };
       const all = stepUntil(run, () => false, 300);
@@ -156,7 +158,7 @@ describe('T-clamps (F8)', () => {
     const y = catTopY - config.weapons.yarn.speedU;
     const run = runFromScenario({ seed: 'clamp1', distanceM: 1000, weapon: 'yarn', hp: 1e9, rats: [{ x: 270, y, hp: 1000 }, { x: 270, y, hp: 1000 }] });
     // freeze the rats in place: scroll would move them, so cancel by making the run a boss fight
-    stateOf(run).boss = { index: 99, x: 270, y: -400, hp: 1e12, maxHp: 1e12, missTicks: 0 };
+    stateOf(run).boss = { index: 99, x: 270, y: -400, hp: 1e12, maxHp: 1e12, missTicks: 0, half: -1 };
     step(run, 0);
     const p = view(run).projectiles[0] as Projectile;
     expect(p.hitIds).toHaveLength(2);
@@ -169,7 +171,7 @@ describe('T-clamps (F8)', () => {
 /** Scenario with the boss pause trick so crafted rats don't scroll. */
 function still(weapon: WeaponId, rats: { x: number; y: number; hp: number }[], mods: Partial<Mods> = {}) {
   const run = runFromScenario({ seed: 'hits0', distanceM: 1000, weapon, hp: 1e9, rats, mods });
-  stateOf(run).boss = { index: 99, x: 270, y: -2000, hp: 1e12, maxHp: 1e12, missTicks: 0 };
+  stateOf(run).boss = { index: 99, x: 270, y: -2000, hp: 1e12, maxHp: 1e12, missTicks: 0, half: -1 };
   return run;
 }
 

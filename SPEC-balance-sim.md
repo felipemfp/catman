@@ -214,3 +214,30 @@ Goal, written before tuning: still cat (input 0 forever) median ≤ 1000 m and p
 **Outcome:** goal not fully met. The still-cat median is 1172 m (goal 1000; 22% die at boss 0), p90 2264 m (goal 2000), ratio 2.46× (goal 2.5×). A periodic test guards the reached levels: median ≤ 1300, p90 ≤ 2500, moving ≥ 2×.
 
 Sweep (1000 runs): laser is inside the distance band for the first time since the retune. Pencil is now just under the band (0.70×), and ratKillRate falls under 0.6 for pencil, yarn and fishbone (0.54–0.60): with tougher, charging rats, dodging replaces mowing down. That's the intended shift, but it conflicts with the casual-profile rat-kill target. Felipe's call whether to lower that target or soften rat HP.
+
+## Boss threat targets (CORE_VERSION 10)
+
+Felipe: "I hardly die to a boss". Approved with the variants plan, these new targets are pooled over the four weapon builds (not random). A combo fight counts toward each of its variants.
+- `bossDeathShareMin` 0.35: at least this share of deaths (`rats` or `boss`) happen while a boss is alive.
+- `variantDeathShareMin` 0.15: each variant (horde, frenzy, twins) causes at least this share of boss-fight deaths, so none is decorative.
+- `variantWinMin` 0.5: each variant's fights are won at least this often, so none is a wall.
+
+Bookkeeping:
+- `RunRow` gains `fights: { variant, won }[]` and `deathFight` (the variant of the fight the run ended in, or −1). `deathFight` is also a runs.csv column.
+- `Summary` gains `fights`.
+- **Bot:** in a fight it aims at the boss nearer the cat (twins: the lower one) and takes the closest x that is `safe()` with a frenzy-speed lookahead.
+
+**Sweep (1000 runs, v10b config).**
+- Boss fights cause 0.449 of deaths (1795/3995).
+
+| Variant | Fights won | Share of boss deaths |
+|---|---|---|
+| plain | 0.95 | 0.31 |
+| horde | 0.95 | 0.26 |
+| frenzy | 0.96 | 0.17 |
+| twins | 0.89 | 0.51 |
+
+Still failing, carried over from CORE_VERSION 8/9:
+- laser > pencil dominance
+- pencil median 0.72×
+- pencil and fishbone ratKillRate 0.58 / 0.57

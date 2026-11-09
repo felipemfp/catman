@@ -8,8 +8,12 @@ export type RunRow = {
   build: Build; seedIndex: number; seed: string; ticks: number; distanceM: number; score: number; cause: EndCause | 'cap';
   bossesKilled: number; reachedBoss0: boolean; killedBoss0: boolean; hordesCleared: number; hordesEscaped: number;
   gatesTaken: number; finalWeapon: WeaponId; ratsSeen: number; ratsKilled: number; tunaHeals: number;
+  /** Variant flags of the fight the run ended in, or −1 if it did not end in a boss fight. */
+  deathFight: number;
   // not in runs.csv; used for summary.json
   reached: boolean[]; killed: boolean[]; holding: boolean[]; picks: string[];
+  /** Every fight reached: its variant flags and whether it was won. */
+  fights: { variant: number; won: boolean }[];
 };
 
 export function seedFor(i: number): string {
@@ -25,6 +29,7 @@ export function runOne(build: Build, seedIndex: number, maxTicks: number = confi
   const killed = reached.slice();
   const holding = reached.slice();
   const picks: string[] = [];
+  const fights: RunRow['fights'] = [];
   let cleared = 0;
   let escaped = 0;
   let ratsKilled = 0;
@@ -43,9 +48,10 @@ export function runOne(build: Build, seedIndex: number, maxTicks: number = confi
         case 'hordeCleared': cleared++; break;
         case 'hordeEscaped': escaped++; break;
         case 'bossSpawned':
+          fights.push({ variant: e.variant, won: false });
           if (e.index < BOSS_SLOTS) { reached[e.index] = true; holding[e.index] = view(run).cat.weapon === build; }
           break;
-        case 'bossKilled': if (e.index < BOSS_SLOTS) killed[e.index] = true; break;
+        case 'bossKilled': fights[fights.length - 1]!.won = true; if (e.index < BOSS_SLOTS) killed[e.index] = true; break;
         case 'gateTaken':
           picks.push(typeof e.applied === 'string' ? 'weapon:' + e.applied : `${e.applied.buff.stat}/${e.applied.debuff.stat}`);
           break;
@@ -56,9 +62,10 @@ export function runOne(build: Build, seedIndex: number, maxTicks: number = confi
     if (over) break;
   }
   const v = view(run);
+  const inFight = v.boss !== null && (cause === 'boss' || cause === 'rats');
   return {
     build, seedIndex, seed, ticks: v.tick, distanceM: Math.floor(v.distanceU / 10), score: v.score, cause,
     bossesKilled: v.bossesKilled, reachedBoss0: reached[0]!, killedBoss0: killed[0]!, hordesCleared: cleared, hordesEscaped: escaped,
-    gatesTaken: picks.length, finalWeapon: v.cat.weapon, ratsSeen: seen.size, ratsKilled, tunaHeals, reached, killed, holding, picks,
+    gatesTaken: picks.length, finalWeapon: v.cat.weapon, ratsSeen: seen.size, ratsKilled, tunaHeals, deathFight: inFight ? fights[fights.length - 1]!.variant : -1, reached, killed, holding, picks, fights,
   };
 }

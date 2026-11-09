@@ -5,10 +5,10 @@ import { parseBoot, seedFromBytes, shareLink, searchFor } from './url.ts';
 import { levelFromKeys, levelFromPointer } from './input.ts';
 import { advance, TICK_MS } from './loop.ts';
 import { fetchGhost, verifyBody, RETRY_AT_S, type FetchDeps } from './ghostfetch.ts';
-import { gateLabel, iconGlyph } from './labels.ts';
+import { bossIcons, gateLabel, iconGlyph } from './labels.ts';
 import { createGhostCheck } from './ghostcheck.ts';
 import { formatScore } from './format.ts';
-import { CORE_VERSION, encodeInputLog, toBase64 } from '../core/index.ts';
+import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS, CORE_VERSION, encodeInputLog, toBase64 } from '../core/index.ts';
 
 describe('U-url', () => {
   it('keeps a valid seed, replaces a bad one, reads g only when valid', () => {
@@ -125,6 +125,19 @@ describe('U-labels (C5)', () => {
         }
       }
     }
+  });
+});
+
+describe('U-boss-icons (CORE_VERSION 10)', () => {
+  it('plain is a crown; each variant has its own emoji; combos show both; no words', () => {
+    expect(bossIcons(0)).toBe('👑');
+    expect(bossIcons(BOSS_HORDE)).toBe('🐀');
+    expect(bossIcons(BOSS_FRENZY)).toBe('⚡');
+    expect(bossIcons(BOSS_TWINS)).toBe('👑👑');
+    expect(bossIcons(BOSS_TWINS | BOSS_FRENZY)).toBe('👑👑 ⚡');
+    const all = [0, 1, 2, 3, 4, 5, 6].map(bossIcons);
+    expect(new Set(all).size).toBe(all.length);
+    for (const s of all) expect(s).not.toMatch(/[A-Za-z]/);
   });
 });
 

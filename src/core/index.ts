@@ -5,9 +5,9 @@ export { CORE_VERSION } from './version.ts';
 export { config, type CoreConfig } from './config.ts';
 export { type Run, createRun, step, view, hashState } from './run.ts';
 export { setFrozenViews } from './view.ts';
-export { scrollFor, bossHpFor, simulateBossFight } from './step.ts';
+export { scrollFor, bossHpFor, simulateBossFight, variantHpMult } from './step.ts';
 export { validateGate, effDamage, effFireRate, effRange, effPierce, effProjectiles, onDpsAxis, isAdditive, catTopY } from './stats.ts';
-export { generateSegment } from './lane.ts';
+export { generateSegment, bossMarkK, bossVariant, BOSS_HORDE, BOSS_FRENZY, BOSS_TWINS } from './lane.ts';
 export { createRng } from './rng.ts';
 export { levelToward } from './cat.ts';
 export {

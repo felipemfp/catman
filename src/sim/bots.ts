@@ -82,7 +82,15 @@ export function createBot(build: Build): Bot {
       const onSide = side === 'left' ? cat.x < W.widthU / 2 : cat.x >= W.widthU / 2;
       if (!onSide || g.y > W.catLineY - 200) return levelToward(cat, side === 'left' ? W.widthU / 4 : (3 * W.widthU) / 4);
     }
-    if (v.boss !== null) return levelToward(cat, v.boss.x);
+    if (v.boss !== null) {
+      // aim at the boss closest to the cat (twins: the one that would reach first), dodging fight waves
+      const b = v.twin !== null && v.twin.y > v.boss.y ? v.twin : v.boss;
+      if (v.rats.length === 0) return levelToward(cat, b.x);
+      const ahead = config.boss.frenzy.speedU;
+      let bx = -1;
+      for (const x of CANDIDATES) if (safe(v, x, ahead) && (bx < 0 || Math.abs(x - b.x) < Math.abs(bx - b.x))) bx = x;
+      return levelToward(cat, bx < 0 ? b.x : bx);
+    }
     const scroll = scrollFor(v);
     const half = firingHalfWidth(v);
     const range = effRange(cat.weapon, cat.mods);

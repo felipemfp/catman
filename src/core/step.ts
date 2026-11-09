@@ -1,9 +1,10 @@
 // The 13-step tick (SPEC-game-core § Tick order). Changing the order bumps CORE_VERSION.
-import type { Boss, CoreEvent, DeepReadonly, InputLevel, Mods, Projectile, Rat, RunState, Tuna, WeaponId } from './types.ts';
+import type { Boss, CoreEvent, Fight, DeepReadonly, InputLevel, Mods, Projectile, Rat, RunState, Tuna, WeaponId } from './types.ts';
 import { config } from './config.ts';
 import { overlaps } from './math.ts';
 import { stepCat } from './cat.ts';
-import { bossIndexOfSegment, generateSegment, segU } from './lane.ts';
+import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS, bossIndexOfSegment, bossMarkK, bossVariant, generateSegment, ratHpAt, segU } from './lane.ts';
+import { createRng, randInt, randReal } from './rng.ts';
 import { applyStatGate, catTopY, defaultMods, effBounces, effPierce, effProjectiles } from './stats.ts';
 
 export type StepOpts = { probe: boolean };
@@ -36,7 +37,10 @@ function moveBoss(b: Boss, catX: number): void {
   const half = B.sizeU / 2;
   const dx = catX - b.x;
   b.x += Math.max(-B.trackUPerTick, Math.min(B.trackUPerTick, dx));
-  b.x = Math.max(half, Math.min(W.widthU - half, b.x));
+  // a twin keeps to its own half, so the cat must cross the middle to hit the other one
+  const lo = b.half === 1 ? W.widthU / 2 + half : half;
+  const hi = b.half === 0 ? W.widthU / 2 - half : W.widthU - half;
+  b.x = Math.max(lo, Math.min(hi, b.x));
   const over = b.missTicks - B.missGraceTicks + 1;
   const mult = over > 0 ? Math.min(B.rageMax, 1 + B.rageRampPerTick * over) : 1;
   b.y += B.speedUPerTick * mult;
@@ -89,13 +93,90 @@ function bossMult(s: RunState): number {
   return 1 + B.pierceBonus * s.cat.mods.pierceAdd;
 }
 
+/** Live bosses, main first. A twin exists only while the main boss does. */
+function bossesOf(s: RunState): Boss[] {
+  if (s.boss === null) return [];
+  return s.twin === null ? [s.boss] : [s.boss, s.twin];
+}
+
+/** HP multiplier of one boss of a fight with this variant. */
+export function variantHpMult(variant: number): number {
+  const m = B.variants.hpMult;
+  let k = 1;
+  if (variant & BOSS_HORDE) k *= m.horde;
+  if (variant & BOSS_FRENZY) k *= m.frenzy;
+  if (variant & BOSS_TWINS) k *= m.twins;
+  return k;
+}
+
+/** Wave rats get ids above any lane id; horde ones and fast frenzy ones in separate ranges. */
+const HORDE_ID = 5e8;
+const FRENZY_ID = 6e8;
+/** Wave rats carry these segmentK values (no lane segment, no horde bookkeeping). */
+const HORDE_K = -2;
+const FRENZY_K = -3;
+
+function waveEvery(s: RunState, f: Fight, every: number, min: number): number {
+  let hp = 0;
+  for (const b of bossesOf(s)) hp += Math.max(0, b.hp);
+  const frac = f.maxHp > 0 ? Math.min(1, hp / f.maxHp) : 0;
+  return Math.round(min + (every - min) * frac);
+}
+
+/** Spawns one fight wave at the top of the screen (SPEC-game-core § Boss variants). */
+function spawnWave(s: RunState, f: Fight, kind: 'horde' | 'frenzy'): void {
+  const rng = createRng(s.seed + ':wave:' + f.index + ':' + f.waves);
+  f.waves += 1;
+  const hp = ratHpAt(s.distanceU / 10);
+  const y = config.rat.spawnYU;
+  const base = s.distanceU;
+  if (kind === 'horde') {
+    const L = config.lane;
+    const gap = randInt(rng, L.wallSlots - B.horde.gapSlots + 1);
+    for (let i = 0; i < L.wallSlots; i++) {
+      if (i >= gap && i < gap + B.horde.gapSlots) continue;
+      s.rats.push({ laneId: HORDE_ID + s.nextWaveId++, segmentK: HORDE_K, x: L.wallSlotOriginU + L.wallSlotSpacingU * i, baseY: y - base, y, hp });
+    }
+  } else {
+    for (let i = 0; i < B.frenzy.rats; i++) {
+      const x = randReal(rng, RAT / 2, W.widthU - RAT / 2);
+      s.rats.push({ laneId: FRENZY_ID + s.nextWaveId++, segmentK: FRENZY_K, x, baseY: y - base - i * 40, y: y - i * 40, hp });
+    }
+  }
+  s.rats.sort((a, b) => a.laneId - b.laneId);
+}
+
+/** Step 5 during a fight: spawn due waves, then move wave rats down and toward the cat. */
+function fightWaves(s: RunState, f: Fight): void {
+  if (f.variant & BOSS_HORDE && s.tick >= f.nextHordeTick) {
+    spawnWave(s, f, 'horde');
+    f.nextHordeTick = s.tick + waveEvery(s, f, B.horde.everyTicks, B.horde.minEveryTicks);
+  }
+  if (f.variant & BOSS_FRENZY && s.tick >= f.nextFrenzyTick) {
+    spawnWave(s, f, 'frenzy');
+    f.nextFrenzyTick = s.tick + waveEvery(s, f, B.frenzy.everyTicks, B.frenzy.minEveryTicks);
+  }
+  const lockY = W.catLineY - config.rat.homing.lockU;
+  const cx = s.cat.x;
+  for (const r of s.rats) {
+    if (r.segmentK !== HORDE_K && r.segmentK !== FRENZY_K) continue;
+    const w = r.segmentK === FRENZY_K ? B.frenzy : B.horde;
+    r.baseY += w.speedU;
+    r.y += w.speedU;
+    if (r.y > lockY) continue;
+    const step = w.homeFrac * w.speedU;
+    const d = cx - r.x;
+    r.x += d > 0 ? Math.min(step, d) : Math.max(-step, d);
+  }
+}
+
 export function createState(seed: string): RunState {
   return {
     seed, tick: 0, distanceU: 0, freezeTicks: 0, over: null,
     cat: { x: W.widthU / 2, vx: 0, hp: C.hp, invulnTicks: 0, weapon: 'pencil', mods: defaultMods(), cooldown: 0 },
-    rats: [], gates: [], projectiles: [], boss: null, hordes: [],
+    rats: [], gates: [], projectiles: [], boss: null, twin: null, fight: null, hordes: [],
     nextSegmentK: 0, nextProjectileId: 0, bossesSpawned: 0, bossesKilled: 0, ratsKilled: 0, score: 0, warnedForBoss: -1,
-    tunas: [], bonusScore: 0,
+    tunas: [], bonusScore: 0, telegraphedBoss: -1, nextWaveId: 0,
   };
 }
 
@@ -114,7 +195,7 @@ function fire(s: RunState): void {
   }
 }
 
-type BeamTarget = { y: number; id: number; rat: Rat | null };
+type BeamTarget = { y: number; id: number; rat: Rat | null; boss: Boss | null };
 
 function killRat(s: RunState, rat: Rat, ev: CoreEvent[]): void {
   ev.push({ t: 'ratKilled', laneId: rat.laneId, segmentK: rat.segmentK, x: rat.x, y: rat.y });
@@ -142,11 +223,10 @@ function beams(s: RunState, ev: CoreEvent[]): void {
     const bx = cat.x + (b - (n - 1) / 2) * lw.beamSpacingU;
     const targets: BeamTarget[] = [];
     for (const r of s.rats) {
-      if (r.hp > 0 && overlaps(bx, cy, lw.beamWidthU, h, r.x, r.y, RAT, RAT)) targets.push({ y: r.y, id: r.laneId, rat: r });
+      if (r.hp > 0 && overlaps(bx, cy, lw.beamWidthU, h, r.x, r.y, RAT, RAT)) targets.push({ y: r.y, id: r.laneId, rat: r, boss: null });
     }
-    const boss = s.boss;
-    if (boss !== null && overlaps(bx, cy, lw.beamWidthU, h, boss.x, boss.y, B.sizeU, B.sizeU)) {
-      targets.push({ y: boss.y, id: -1, rat: null });
+    for (const boss of bossesOf(s)) {
+      if (overlaps(bx, cy, lw.beamWidthU, h, boss.x, boss.y, B.sizeU, B.sizeU)) targets.push({ y: boss.y, id: -1 - boss.half, rat: null, boss });
     }
     targets.sort((a, c) => (c.y - a.y) || (a.id - c.id));
     const count = Math.min(maxTargets, targets.length);
@@ -156,7 +236,8 @@ function beams(s: RunState, ev: CoreEvent[]): void {
         t.rat.hp -= dmg;
         if (showEvent) ev.push({ t: 'damage', x: t.rat.x, y: t.rat.y, amount: dmg * 10 });
         if (t.rat.hp <= 0) killRat(s, t.rat, ev);
-      } else if (boss !== null) {
+      } else if (t.boss !== null) {
+        const boss = t.boss;
         const bd = dmg * bossMult(s);
         boss.hp -= bd;
         boss.missTicks = 0;
@@ -203,8 +284,9 @@ function projectiles(s: RunState, ev: CoreEvent[]): void {
       if (r.hp <= 0) killRat(s, r, ev);
       if (p.weapon === 'yarn' && p.hitsLeft > 0) retarget(s, p);
     }
-    const boss = s.boss;
-    if (p.hitsLeft > 0 && boss !== null && overlaps(p.x, p.y, p.w, p.h, boss.x, boss.y, B.sizeU, B.sizeU)) {
+    for (const boss of bossesOf(s)) {
+      if (p.hitsLeft <= 0) break;
+      if (!overlaps(p.x, p.y, p.w, p.h, boss.x, boss.y, B.sizeU, B.sizeU)) continue;
       const bd = p.damage * bossMult(s);
       boss.hp -= bd;
       boss.missTicks = 0;
@@ -221,16 +303,26 @@ function spawnSegment(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
   s.nextSegmentK += 1;
   const seg = generateSegment(s.seed, k);
   if (seg.kind === 'boss') {
-    const index = bossIndexOfSegment(k);
+    const index = bossIndexOfSegment(s.seed, k);
     if (index !== s.bossesSpawned) return; // scenario started on this mark: counted as spawned and killed
-    const hp = opts.nextBossHp ?? bossHpFor(index);
+    const variant = bossVariant(s.seed, index);
+    const hp = (opts.nextBossHp ?? bossHpFor(index)) * variantHpMult(variant);
     opts.nextBossHp = null;
-    const boss: Boss = { index, x: seg.bossX!, y: -B.sizeU / 2, hp, maxHp: hp, missTicks: 0 };
-    s.boss = boss;
+    const y = -B.sizeU / 2;
+    if (variant & BOSS_TWINS) {
+      s.boss = { index, x: W.widthU / 4, y, hp, maxHp: hp, missTicks: 0, half: 0 };
+      s.twin = { index, x: (3 * W.widthU) / 4, y, hp, maxHp: hp, missTicks: 0, half: 1 };
+    } else {
+      s.boss = { index, x: seg.bossX!, y, hp, maxHp: hp, missTicks: 0, half: -1 };
+    }
+    s.fight = {
+      index, variant, maxHp: variant & BOSS_TWINS ? 2 * hp : hp,
+      nextHordeTick: s.tick + B.horde.firstTicks, nextFrenzyTick: s.tick + B.frenzy.firstTicks, waves: 0,
+    };
     s.bossesSpawned += 1;
     s.cat.cooldown = 0;
     s.projectiles = [];
-    ev.push({ t: 'bossSpawned', index, hp });
+    ev.push({ t: 'bossSpawned', index, hp, variant });
     return;
   }
   if (seg.gate !== null) {
@@ -255,13 +347,25 @@ function spawnSegment(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
   s.hordes.push({ segmentK: k, alive: seg.rats.length, spawnTick: s.tick });
 }
 
+/** The variant icon, telegraphM before the mark (SPEC-game-core § Boss variants). */
+function bossTelegraph(s: RunState, ev: CoreEvent[]): void {
+  const i = s.telegraphedBoss + 1;
+  const markM = bossMarkK(s.seed, i) * config.lane.segmentM;
+  if (s.distanceU / 10 < markM - B.telegraphM) return;
+  s.telegraphedBoss = i;
+  ev.push({ t: 'bossIncoming', index: i, variant: bossVariant(s.seed, i) });
+}
+
 function bossWarning(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
   const i = s.warnedForBoss + 1;
-  const markM = (i + 1) * B.everyM;
+  const markK = bossMarkK(s.seed, i);
+  const markM = markK * config.lane.segmentM;
   if (s.distanceU / 10 < markM - B.warningM) return;
   s.warnedForBoss = i;
-  const hp = opts.nextBossHp ?? bossHpFor(s.bossesSpawned);
-  const bossX = generateSegment(s.seed, markM / config.lane.segmentM).bossX!;
+  // total HP of the fight (twins: both); exact for plain bosses, an estimate for variants (waves, split targets)
+  const v = bossVariant(s.seed, i);
+  const hp = (opts.nextBossHp ?? bossHpFor(s.bossesSpawned)) * variantHpMult(v) * (v & BOSS_TWINS ? 2 : 1);
+  const bossX = generateSegment(s.seed, markK).bossX!;
   const r = simulateBossFight(s.cat.mods, s.cat.weapon, hp, bossX);
   const walkSeconds = r.reachTick / 60;
   const scroll = scrollFor(s);
@@ -312,7 +416,8 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     homeRats(s, scroll);
     for (const g of s.gates) g.y = g.baseY + s.distanceU;
     for (const t of s.tunas) t.y = t.baseY + s.distanceU;
-    if (s.boss !== null) moveBoss(s.boss, cat.x);
+    for (const b of bossesOf(s)) moveBoss(b, cat.x);
+    if (s.fight !== null) fightWaves(s, s.fight);
     // 6
     if (cat.invulnTicks === 0) {
       for (let i = 0; i < s.rats.length; i++) {
@@ -367,14 +472,20 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     }
     // 8
     const boss = s.boss;
-    if (boss !== null && boss.hp <= 0) {
+    if (boss !== null) {
+      const twin = s.twin;
       if (step.probe) {
-        if (probe && probe.killTick === null) probe.killTick = s.tick;
+        if (boss.hp <= 0 && (twin === null || twin.hp <= 0) && probe && probe.killTick === null) probe.killTick = s.tick;
       } else {
-        s.boss = null;
-        s.bossesKilled += 1;
-        s.freezeTicks = Math.max(s.freezeTicks, B.killFreezeTicks);
-        ev.push({ t: 'bossKilled', index: boss.index });
+        // a twin that dies first leaves; if the main one dies first, the twin takes its slot
+        if (twin !== null && twin.hp <= 0) s.twin = null;
+        if (boss.hp <= 0) { s.boss = s.twin; s.twin = null; }
+        if (s.boss === null) {
+          s.fight = null;
+          s.bossesKilled += 1;
+          s.freezeTicks = Math.max(s.freezeTicks, B.killFreezeTicks);
+          ev.push({ t: 'bossKilled', index: boss.index });
+        }
       }
     }
     // 9
@@ -421,13 +532,13 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     }
     // 12
     s.score = Math.floor(s.distanceU / 10) + s.ratsKilled + 250 * s.bossesKilled + s.bonusScore;
-    if (!step.probe) bossWarning(s, opts, ev);
+    if (!step.probe) { bossTelegraph(s, ev); bossWarning(s, opts, ev); }
   }
   // 13
   let cause: RunState['over'] = null;
   if (!frozen) {
     if (s.cat.hp <= 0) cause = 'rats';
-    else if (s.boss !== null && s.boss.y + B.sizeU / 2 >= catTopY) cause = 'boss';
+    else if (bossesOf(s).some((b) => b.y + B.sizeU / 2 >= catTopY)) cause = 'boss';
   }
   if (cause === null && s.tick === config.run.maxTicks) cause = 'timeout';
   if (cause !== null) {
@@ -441,10 +552,12 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
  * Runs the game's own tick on a scratch state that matches what the boss-spawn step leaves:
  * statue cat under the boss, no shots, cooldown 0, empty screen. Exact by construction (F6).
  */
+const SCRATCH_MARK_M = 500;
+
 export function simulateBossFight(mods: Mods, weapon: WeaponId, bossHp: number, bossX: number):
   { damageByReach: number; killTick: number | null; reachTick: number } {
   const s = createState('scratch0');
-  const markM = B.everyM;
+  const markM = SCRATCH_MARK_M;
   s.distanceU = markM * 10;
   s.nextSegmentK = markM / config.lane.segmentM + 1;
   s.bossesSpawned = 1;
@@ -452,7 +565,7 @@ export function simulateBossFight(mods: Mods, weapon: WeaponId, bossHp: number, 
   s.cat.x = bossX;
   s.cat.weapon = weapon;
   s.cat.mods = { ...mods };
-  s.boss = { index: 0, x: bossX, y: -B.sizeU / 2, hp: bossHp, maxHp: bossHp, missTicks: 0 };
+  s.boss = { index: 0, x: bossX, y: -B.sizeU / 2, hp: bossHp, maxHp: bossHp, missTicks: 0, half: -1 };
   const opts: RunOpts = { nextBossHp: null, gates: true };
   const probe: ProbeResult = { killTick: null };
   while (s.over === null) stepState(s, 0, opts, { probe: true }, probe);
