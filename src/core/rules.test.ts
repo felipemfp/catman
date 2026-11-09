@@ -162,13 +162,14 @@ describe('T-hits', () => {
     const ev = step(run, 0);
     expect(ofType(ev, 'damage')).toHaveLength(3);
     expect(view(run).projectiles).toHaveLength(0);
-    expect(view(run).rats.map((r) => r.hp)).toEqual([1000 - 10, 1000 - 10, 1000 - 10, 1000]);
+    const d = config.weapons.pencil.damage;
+    expect(view(run).rats.map((r) => r.hp)).toEqual([1000 - d, 1000 - d, 1000 - d, 1000]);
   });
   it('one pencil on the boss deals one hit and is removed', () => {
     const run = runFromScenario({ seed: 'hits1', distanceM: 1000, hp: 1e9, boss: { x: 270, y: catTopY - 80, hp: 500 } });
     const ev = step(run, 0);
     expect(ofType(ev, 'damage')).toHaveLength(1);
-    expect(view(run).boss!.hp).toBe(490);
+    expect(view(run).boss!.hp).toBe(500 - config.weapons.pencil.damage);
     expect(view(run).projectiles).toHaveLength(0);
   });
   for (const pierceAdd of [0, 1]) {

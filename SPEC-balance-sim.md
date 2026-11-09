@@ -103,3 +103,15 @@ The 0.05 margins aren't arbitrary. With 1,000 runs per build, the standard error
 - [ ] Same arguments → byte-identical `runs.csv` and `summary.json`.
 - [ ] `--check` exits 0 on the tuned `config.ts` before the client ships.
 - [ ] `--out` inside the repo exits 2.
+
+## First balance pass (2026-11-09, CORE_VERSION 2)
+
+Changed in `config.ts`: boss `baseHp` 800 → 375, pencil damage 10 → 13, tier-0 debuff ×0.8 → ×0.85. `--runs 1000 --check` on an i7-13700T, 4.4 s:
+
+| Target | Start values | After |
+|---|---|---|
+| dominance.json empty | pass | pass |
+| median distance in band | pass (all 500 m) | pass (laser 1.25×, others 1.0×) |
+| bossKillRate[0] pencil / laser / yarn / fishbone | 0.04 / 0.11 / 0.05 / 0.05 | 0.83 / **0.96** / 0.81 / 0.79 |
+
+**Still failing: the laser build at 0.96 > 0.90.** Most laser-bot runs still hold the pencil at boss 0 (only two gates come first), and the laser bot takes DPS buffs, which are exactly the boss stat. The pencil bot takes pierce, usually paid with a damage or fire-rate debuff, and about a third of its runs land on one identical boss damage. So the kill rates jump in steps as boss HP moves, and no HP puts both bots inside a 0.30-wide band without splitting that group on a single HP point (351 passes three targets and fails laser at 0.908; 352 fails pencil at 0.594). Tuning to one HP point would be fitting the fixed seeds, not balance. Options (targets and bots are Felipe's call): widen the boss-0 band, have the pencil bot prefer range (which helps it on bosses), or add a third gate before boss 0.

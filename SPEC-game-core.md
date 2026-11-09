@@ -191,7 +191,7 @@ These are guarantees that a player **can** dodge, not that every state is safe: 
 
   | Tier (gate mark distance, m) | Buff mult | Buff add | Debuff mult |
   |---|---|---|---|
-  | `[0, 1000)` | ×1.3 | +1 | ×0.8 |
+  | `[0, 1000)` | ×1.3 | +1 | ×0.8 (first balance pass: ×0.85) |
   | `[1000, 3000)` | ×1.4 | +1 | ×0.75 |
   | `≥ 3000` | ×1.5 | +2 | ×0.7 |
 
@@ -415,8 +415,8 @@ Starting values only. balance-sim tunes them, no test pins them, and any change 
 | cat | `widthU` 40 · `heightU` 48 · `maxSpeedUPerTick` 9 · `accelUPerTick2` 1.5 · `hp` 3 · `invulnTicks` 60 · `hitFreezeTicks` 6 |
 | rat | `sizeU` 28 · `spawnYU` −14 · `baseHp` 20 · `hpRampPerM` 0.004 |
 | gates | `everyM` 150 · `heightU` 40 · `spawnYU` −20 · `dyU` 75 · `weaponChance` 0.25 |
-| boss | `everyM` 500 · `clearM` 150 · `warningM` 30 · `sizeU` 120 · `speedUPerTick` 1.2 · `baseHp` 800 · `hpGrowth` 1.6 · `killFreezeTicks` 12 |
-| pencil | dmg 10 · rate 4/s · proj 1 · pierce 2 · range 520 U · speed 14 · spreadVx 0.6 · 6×16 |
+| boss | `everyM` 500 · `clearM` 150 · `warningM` 30 · `sizeU` 120 · `speedUPerTick` 1.2 · `baseHp` 800 (first balance pass: 375) · `hpGrowth` 1.6 · `killFreezeTicks` 12 |
+| pencil | dmg 10 (first balance pass: 13) · rate 4/s · proj 1 · pierce 2 · range 520 U · speed 14 · spreadVx 0.6 · 6×16 |
 | laser | dps 150 · beams 1 (+`projectilesAdd`) · beamWidthU 14 · beamSpacingU 22 · range 700 U · pierce 0 |
 | yarn | dmg 14 · rate 2.5/s · proj 1 · bounces 3 · range 700 U · speed 10 · spreadVx 0.8 · 12×12 |
 | fishbone | dmg 5 · rate 3/s · proj 5 · pierce 0 · range 300 U · speed 12 · spreadVx 1.2 · 8×12 |
@@ -502,7 +502,7 @@ The floor applies to the slower scenario.
 
 ## Open Questions
 
-- **Pencil vs boss 0:** pencil-only reaches about 26–41 of the 67 DPS needed. At start values the laser also beats the pencil on everything except pierce, so expect the first balance sweep to fail the dominance target; that's balance-sim's job to surface. Is that the intended push to swap (pencil as the horde weapon), or should pencil stand on its own? The sim says how often; this is about intent.
+- **Pencil vs boss 0 (answered 2026-11-09: "rest is good", so pencil stays the horde weapon and the first balance pass lifts it to beat boss 0 on base stats):** pencil-only reaches about 26–41 of the 67 DPS needed. At start values the laser also beats the pencil on everything except pierce, so expect the first balance sweep to fail the dominance target; that's balance-sim's job to surface. Is that the intended push to swap (pencil as the horde weapon), or should pencil stand on its own? The sim says how often; this is about intent.
 - **Kills count only for score.** Power comes from gates, so a careful player can hide in the corridor. Is beating the ghost's score reason enough to fight? MVP: yes.
 - **Rats ride the lane rigidly** (they no longer walk). That makes lane geometry exact and gates never guarded, at the cost of rats feeling less alive. If the playtest says they feel static, a walk animation in the client costs nothing; real walking would reopen F2 and F15.
 - Boss with no attacks: revisit after the playtest.
