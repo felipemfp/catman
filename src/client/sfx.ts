@@ -1,5 +1,5 @@
-// Five synthesised sounds, no audio files. The context unlocks on first input.
-export type SfxName = 'shoot' | 'hit' | 'gate' | 'warning' | 'death';
+// Six synthesised sounds, no audio files. The context unlocks on first input.
+export type SfxName = 'shoot' | 'hit' | 'gate' | 'warning' | 'death' | 'heal';
 
 type Voice = { type: OscillatorType; from: number; to: number; ms: number; gain: number };
 const VOICES: Record<SfxName, Voice> = {
@@ -8,6 +8,7 @@ const VOICES: Record<SfxName, Voice> = {
   gate: { type: 'triangle', from: 520, to: 1040, ms: 180, gain: 0.1 },
   warning: { type: 'square', from: 330, to: 330, ms: 400, gain: 0.07 },
   death: { type: 'sawtooth', from: 400, to: 40, ms: 700, gain: 0.12 },
+  heal: { type: 'sine', from: 660, to: 1320, ms: 260, gain: 0.12 },
 };
 const MUTE_KEY = 'catman.muted';
 

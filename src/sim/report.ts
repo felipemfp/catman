@@ -22,7 +22,7 @@ export function sortRows(rows: RunRow[]): RunRow[] {
   return rows.slice().sort((x, y) => order(x.build) - order(y.build) || x.seedIndex - y.seedIndex);
 }
 
-const CSV_COLS = ['build', 'seedIndex', 'seed', 'ticks', 'distanceM', 'score', 'cause', 'bossesKilled', 'reachedBoss0', 'killedBoss0', 'hordesCleared', 'hordesEscaped', 'gatesTaken', 'finalWeapon', 'ratsSeen', 'ratsKilled'] as const;
+const CSV_COLS = ['build', 'seedIndex', 'seed', 'ticks', 'distanceM', 'score', 'cause', 'bossesKilled', 'reachedBoss0', 'killedBoss0', 'hordesCleared', 'hordesEscaped', 'gatesTaken', 'finalWeapon', 'ratsSeen', 'ratsKilled', 'tunaHeals'] as const;
 
 export function toCsv(rows: RunRow[]): string {
   const lines = [CSV_COLS.join(',')];

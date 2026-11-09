@@ -91,13 +91,47 @@ function drawGatePair(rng: () => number, k: number): GatePair {
   return { laneId: k * 64, baseY, y: baseY + k * segU, left, right, resolved: false };
 }
 
+/** Unit hexagon, as literals: Math.cos/sin are not bit-identical across engines. */
+const HEX: readonly (readonly [number, number])[] = [
+  [1, 0], [0.5, 0.8660254037844386], [-0.5, 0.8660254037844386], [-1, 0], [-0.5, -0.8660254037844386], [0.5, -0.8660254037844386],
+];
+if (config.tuna.guards !== HEX.length) throw new Error('config.tuna.guards must match the hexagon ring');
+
+function isTunaMark(k: number): boolean {
+  const dM = k * L.segmentM;
+  return dM > 0 && dM % config.tuna.everyM === 0;
+}
+
+/** Tuna at the band's middle, ring of guards around it; the whole ring stays off the corridor and on screen. */
+function placeTuna(seed: string, k: number, cx: number, out: SegmentContent): boolean {
+  const T = config.tuna;
+  const rng = createRng(seed + ':tuna:' + k);
+  if (rng() >= T.chance) return false;
+  const size = config.rat.sizeU;
+  const R = T.guardRadiusU;
+  const minX = R + size / 2;
+  const maxX = config.world.widthU - R - size / 2;
+  const clear = corridorHalfU + size / 2 + R;
+  for (let t = 0; t < T.xTries; t++) {
+    const x = randReal(rng, minX, maxX);
+    if (Math.abs(x - cx) < clear) continue;
+    const dy = (L.bandU - size) / 2;
+    const hp = ratHpAt(k * L.segmentM);
+    out.kind = 'tuna';
+    out.tuna = { x, dy };
+    out.rats = HEX.map(([ux, uy], i) => ({ laneId: k * 64 + i + 1, x: x + R * ux, dy: dy + R * uy, hp }));
+    return true;
+  }
+  return false;
+}
+
 function inCorridor(x: number, cx: number): boolean {
   return Math.abs(x - cx) < corridorHalfU + config.rat.sizeU / 2;
 }
 
 export function generateSegment(seed: string, k: number): SegmentContent {
   const cx = corridorX(seed, k);
-  const out: SegmentContent = { k, kind: 'empty', corridorX: cx, rats: [], gate: null, bossX: null };
+  const out: SegmentContent = { k, kind: 'empty', corridorX: cx, rats: [], gate: null, bossX: null, tuna: null };
   const rng = createRng(seed + ':' + k);
   const W = config.world.widthU;
   const size = config.rat.sizeU;
@@ -116,6 +150,7 @@ export function generateSegment(seed: string, k: number): SegmentContent {
     return out;
   }
   if (spawnsGate(k - 1) || spawnsGate(k + 1)) return out;
+  if (isTunaMark(k) && placeTuna(seed, k, cx, out)) return out;
 
   const emptyChance = Math.max(L.emptyFloor, L.emptyStart - dM / L.emptyFallM);
   if (rng() < emptyChance) return out;

@@ -5,7 +5,7 @@ import { sweep } from './sweep.ts';
 import { check, dominates, summarize, toCsv, type BuildSummary } from './report.ts';
 import { runOne } from './run.ts';
 import { insideRepo, parseArgs } from './cli.ts';
-import { chooseSide } from './bots.ts';
+import { chooseSide, createBot } from './bots.ts';
 import type { StatGate, StatKey } from '../core/index.ts';
 
 const full = inject('full');
@@ -160,4 +160,17 @@ describe('rat counters', () => {
       expect(r.ratsSeen).toBeGreaterThanOrEqual(r.ratsKilled);
     }
   });
+});
+
+describe('bots and tuna', () => {
+  const go = (hp: number) => {
+    const run = runFromScenario({ seed: 'bott0', distanceM: 1000, hp, gates: false, catX: 100, tunas: [{ x: 420, y: 600 }] });
+    const bot = createBot('pencil');
+    const rng = () => 0;
+    let ate = false;
+    for (let i = 0; i < 200 && !ate; i++) ate = step(run, bot(view(run), rng)).some((e) => e.t === 'tunaEaten');
+    return ate;
+  };
+  it('a hurt bot goes and eats an approaching tuna', () => expect(go(1)).toBe(true));
+  it('a bot at full hp leaves it', () => expect(go(config.cat.hp)).toBe(false));
 });

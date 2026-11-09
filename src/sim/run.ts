@@ -7,7 +7,7 @@ export const BOSS_SLOTS = 5;
 export type RunRow = {
   build: Build; seedIndex: number; seed: string; ticks: number; distanceM: number; score: number; cause: EndCause | 'cap';
   bossesKilled: number; reachedBoss0: boolean; killedBoss0: boolean; hordesCleared: number; hordesEscaped: number;
-  gatesTaken: number; finalWeapon: WeaponId; ratsSeen: number; ratsKilled: number;
+  gatesTaken: number; finalWeapon: WeaponId; ratsSeen: number; ratsKilled: number; tunaHeals: number;
   // not in runs.csv; used for summary.json
   reached: boolean[]; killed: boolean[]; holding: boolean[]; picks: string[];
 };
@@ -28,6 +28,7 @@ export function runOne(build: Build, seedIndex: number, maxTicks: number = confi
   let cleared = 0;
   let escaped = 0;
   let ratsKilled = 0;
+  let tunaHeals = 0;
   const seen = new Set<number>();
   let cause: RunRow['cause'] = 'cap';
   for (let t = 0; t < maxTicks; t++) {
@@ -38,6 +39,7 @@ export function runOne(build: Build, seedIndex: number, maxTicks: number = confi
     for (const e of ev) {
       switch (e.t) {
         case 'ratKilled': ratsKilled++; seen.add(e.laneId); break;
+        case 'tunaEaten': if (e.healed) tunaHeals++; break;
         case 'hordeCleared': cleared++; break;
         case 'hordeEscaped': escaped++; break;
         case 'bossSpawned':
@@ -57,6 +59,6 @@ export function runOne(build: Build, seedIndex: number, maxTicks: number = confi
   return {
     build, seedIndex, seed, ticks: v.tick, distanceM: Math.floor(v.distanceU / 10), score: v.score, cause,
     bossesKilled: v.bossesKilled, reachedBoss0: reached[0]!, killedBoss0: killed[0]!, hordesCleared: cleared, hordesEscaped: escaped,
-    gatesTaken: picks.length, finalWeapon: v.cat.weapon, ratsSeen: seen.size, ratsKilled, reached, killed, holding, picks,
+    gatesTaken: picks.length, finalWeapon: v.cat.weapon, ratsSeen: seen.size, ratsKilled, tunaHeals, reached, killed, holding, picks,
   };
 }
