@@ -24,7 +24,7 @@ export type RunState = {
   ratsKilled: number; score: number; warnedForBoss: number; // index of the last boss warned; starts at −1
   tunas: Tuna[]; bonusScore: number;
 };
-export type SegmentKind = 'empty' | 'gate' | 'column' | 'swarm' | 'wall' | 'boss' | 'tuna';
+export type SegmentKind = 'empty' | 'gate' | 'column' | 'swarm' | 'wall' | 'boss' | 'tuna' | 'guard';
 export type SegmentContent = {
   k: number; kind: SegmentKind; corridorX: number;
   rats: { laneId: number; x: number; dy: number; hp: number }[]; gate: GatePair | null; bossX: number | null;

@@ -125,6 +125,38 @@ function placeTuna(seed: string, k: number, cx: number, out: SegmentContent): bo
   return false;
 }
 
+/** How good a gate half is, for sizing its guard (SPEC-game-core § Gate guards). */
+export function gateValue(g: Gate): number {
+  const G = config.gates.guard;
+  return g.kind === 'weapon' ? G.weaponValue[g.weapon] : G.statValue;
+}
+
+/** Guard horde for the gate pair two segments ahead: rows across its better half, skipping the corridor. */
+function placeGuard(seed: string, k: number, cx: number, out: SegmentContent): boolean {
+  if (!spawnsGate(k + 2)) return false;
+  const pair = generateSegment(seed, k + 2).gate!;
+  const diff = gateValue(pair.left) - gateValue(pair.right);
+  if (diff === 0) return false;
+  const G = config.gates.guard;
+  const size = config.rat.sizeU;
+  const half = config.world.widthU / 2;
+  const x0 = diff > 0 ? 0 : half;
+  const n = Math.min(G.cap, G.ratsPerValue * Math.abs(diff));
+  const hp = ratHpAt(k * L.segmentM);
+  const rats: SegmentContent['rats'] = [];
+  for (let row = 0; row < G.rows && rats.length < n; row++) {
+    const dy = 20 + row * G.rowSpacingU;
+    for (let x = x0 + size / 2 + 3; x + size / 2 <= x0 + half && rats.length < n; x += G.slotSpacingU) {
+      if (inCorridor(x, cx)) continue;
+      rats.push({ laneId: k * 64 + rats.length + 1, x, dy, hp });
+    }
+  }
+  if (rats.length === 0) return false;
+  out.kind = 'guard';
+  out.rats = rats;
+  return true;
+}
+
 function inCorridor(x: number, cx: number): boolean {
   return Math.abs(x - cx) < corridorHalfU + config.rat.sizeU / 2;
 }
@@ -150,6 +182,7 @@ export function generateSegment(seed: string, k: number): SegmentContent {
     return out;
   }
   if (spawnsGate(k - 1) || spawnsGate(k + 1)) return out;
+  if (placeGuard(seed, k, cx, out)) return out;
   if (isTunaMark(k) && placeTuna(seed, k, cx, out)) return out;
 
   const emptyChance = Math.max(L.emptyFloor, L.emptyStart - dM / L.emptyFallM);
