@@ -595,3 +595,5 @@ Felipe: "I hardly die to a boss". Bosses no longer come every 500 m, and later o
 Changes to existing tests:
 - Scenario tests start 50 m before `bossMarkK(seed, 0)` instead of at a fixed 450 m.
 - T-wall-rest needs ≥ 1 gate per seed: boss 0 can land at 450 m and clear the 300 m gate.
+
+**Distinct gate halves (CORE_VERSION 10, same PR).** Felipe: "sometimes both show the same". The two halves used to be drawn independently, and 8.8% of pairs were identical (445/5037); 12.7% shared a buff stat. The second stat half drawn (or both, next to a weapon half's fallback) now draws its buff from `STAT_KEYS` minus the other half's buff, so a pair always offers two different buffs. Tested over 400 seeds × 4 km in variants.test.ts. The sweep moved slightly: the old dominance failure now reads laser > yarn and fishbone (was laser > pencil). The boss targets still pass (fight death share 0.456).

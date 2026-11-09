@@ -120,8 +120,10 @@ export function ratHpAt(dM: number): number {
   return config.rat.baseHp * (1 + config.rat.hpRampPerM * dM);
 }
 
-function drawStatGate(rng: () => number, tier: { buffMult: number; buffAdd: number; debuffMult: number }): StatGate {
-  const buffStat: StatKey = STAT_KEYS[randInt(rng, STAT_KEYS.length)]!;
+/** A stat gate whose buff is any stat but `avoid` (the other half's buff, so a pair never offers the same thing twice). */
+function drawStatGate(rng: () => number, tier: { buffMult: number; buffAdd: number; debuffMult: number }, avoid: StatKey | null = null): StatGate {
+  const pool = avoid === null ? STAT_KEYS : STAT_KEYS.filter((s) => s !== avoid);
+  const buffStat: StatKey = pool[randInt(rng, pool.length)]!;
   const allowed = allowedDebuffs(buffStat);
   const debuffStat: StatKey = allowed[randInt(rng, allowed.length)]!;
   return {
@@ -143,8 +145,9 @@ function drawGatePair(rng: () => number, k: number): GatePair {
     if (side === 0) left = wg;
     else right = wg;
   }
-  if (left === null) left = drawStatGate(rng, tier);
-  if (right === null) right = drawStatGate(rng, tier);
+  const buffOf = (g: Gate) => (g.kind === 'weapon' ? g.fallback.buff.stat : g.buff.stat);
+  if (left === null) left = drawStatGate(rng, tier, right === null ? null : buffOf(right));
+  if (right === null) right = drawStatGate(rng, tier, buffOf(left));
   const baseY = config.gates.spawnYU - config.gates.dyU - k * segU;
   return { laneId: k * 64, baseY, y: baseY + k * segU, left, right, resolved: false };
 }

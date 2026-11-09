@@ -7,9 +7,9 @@
 //  - horde/frenzy waves never spawn, spawn in a plain fight, don't move during the stopped lane, or leave no gap
 //  - the telegraph is missing, late, repeated, or names a different variant than the fight
 import { describe, expect, it } from 'vitest';
-import type { CoreEvent } from './types.ts';
+import type { CoreEvent, Gate } from './types.ts';
 import { config } from './config.ts';
-import { step, view } from './index.ts';
+import { generateSegment, step, view } from './index.ts';
 import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS, bossMarkK, bossVariant, inClearZone, isBossSegment, spawnsGate } from './lane.ts';
 import { bossHpFor, variantHpMult } from './step.ts';
 import { runFromScenario, stateOf } from './testing.ts';
@@ -81,6 +81,20 @@ describe('boss schedule', () => {
         }
       }
     }
+  });
+});
+
+describe('gate pairs never show the same thing twice (Felipe: "sometimes both show the same")', () => {
+  it('the two halves of a pair always buff different stats (a weapon half counts its fallback)', () => {
+    const buff = (g: Gate) => (g.kind === 'weapon' ? g.fallback.buff.stat : g.buff.stat);
+    let pairs = 0;
+    for (const seed of seeds) for (let k = 0; k < 160; k++) {
+      const g = generateSegment(seed, k).gate;
+      if (!g) continue;
+      pairs++;
+      expect({ seed, k, same: buff(g.left) === buff(g.right) }).toEqual({ seed, k, same: false });
+    }
+    expect(pairs).toBeGreaterThan(5000);
   });
 });
 
