@@ -33,6 +33,7 @@ const linkEl = $<HTMLInputElement>('link');
 const errEl = $('error');
 const copySeedBtn = $<HTMLButtonElement>('btn-copy-seed');
 const muteBtn = $<HTMLButtonElement>('btn-mute');
+const viewBtn = $<HTMLButtonElement>('btn-view');
 
 function render(): void {
   const ui = scene.ui();
@@ -42,6 +43,9 @@ function render(): void {
   ghostEl.textContent = `ghost: ${ui.ghostLine}`;
   muteBtn.textContent = scene.sfx.isMuted() ? '🔇' : '🔊';
   muteBtn.setAttribute('aria-label', scene.sfx.isMuted() ? 'Unmute' : 'Mute');
+  // the button names the view it switches to
+  viewBtn.textContent = scene.cam.view === 'flat' ? '2.5D' : 'Top';
+  viewBtn.setAttribute('aria-label', scene.cam.view === 'flat' ? 'Switch to 2.5D view' : 'Switch to top-down view');
   if (ui.screen === 'death' && scene.ended) {
     scoreEl.textContent = formatScore(scene.ended.score);
     causeEl.textContent = CAUSE_TEXT[scene.ended.cause];
@@ -66,6 +70,7 @@ $('btn-share').addEventListener('click', () => { void scene.share(); });
 copySeedBtn.addEventListener('click', () => { void navigator.clipboard?.writeText(linkEl.value).catch(() => {}); linkEl.select(); });
 linkEl.addEventListener('focus', () => linkEl.select());
 muteBtn.addEventListener('click', () => scene.toggleMute());
+viewBtn.addEventListener('click', () => { scene.toggleView(); viewBtn.blur(); });
 render();
 
 if (import.meta.env.MODE !== 'production') {

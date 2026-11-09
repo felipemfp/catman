@@ -13,6 +13,7 @@ import { createGhostCheck, ghostScoreAt, type GhostTrack } from './ghostcheck.ts
 import { fetchGhost, verifyBody } from './ghostfetch.ts';
 import { searchFor, seedFromBytes, shareLink } from './url.ts';
 import { createSfx } from './sfx.ts';
+import { createCamera, parseView, VIEW_KEY, type Camera } from './camera.ts';
 
 const W = config.world.widthU;
 const H = config.world.heightU;
@@ -21,6 +22,7 @@ const COL = {
   bg: 0x14121c, lane: 0x1d1a29, cat: 0xf4ead5, ghost: 0x8fd3ff, rat: 0xb9a99a, ratEye: 0xff5a5a, boss: 0xd8c3ad, crown: 0xffd23f,
   pencil: 0xffd23f, laser: 0x4ff2ff, yarn: 0xff5577, fish: 0xc8ccd4, buff: 0x2fbf71, debuff: 0xe0464b, weapon: 0x7a5cff, text: '#f4ead5',
   tuna: 0x5b8def, tunaBelly: 0xd6e4ff, tunaGlow: 0x2fbf71,
+  laneEdge: 0x3a3452,
 };
 const MY_GHOSTS = 'catman.myGhosts';
 
@@ -31,6 +33,10 @@ type Scripted = { levels: readonly InputLevel[]; i: number; resolve: (r: { hash:
 
 type DamageNum = { text: Phaser.GameObjects.Text; life: number; vy: number };
 type Puff = { x: number; y: number; life: number; live: boolean };
+
+function readStoredView(): string | null {
+  try { return localStorage.getItem(VIEW_KEY); } catch { return null; }
+}
 
 function readMyGhosts(): string[] {
   try {
@@ -87,6 +93,8 @@ export class GameScene extends Phaser.Scene {
   dpsKey = '';
   dpsText = '';
   reducedMotion = false;
+  quadPts = [0, 1, 2, 3].map(() => new Phaser.Math.Vector2());
+  cam: Camera = createCamera(parseView(typeof location === 'undefined' ? '' : location.search, readStoredView()));
   sfx = createSfx();
   frame = 0;
   onUi: (() => void) | null = null;
@@ -129,6 +137,7 @@ export class GameScene extends Phaser.Scene {
       if (k === 'ArrowLeft' || k === 'a' || k === 'A') { this.keys.left = down; this.lastDevice = 'keys'; e.preventDefault(); }
       else if (k === 'ArrowRight' || k === 'd' || k === 'D') { this.keys.right = down; this.lastDevice = 'keys'; e.preventDefault(); }
       else if (down && (k === 'm' || k === 'M')) this.toggleMute();
+      else if (down && (k === 'v' || k === 'V')) this.toggleView();
       if (down) this.sfx.unlock();
     };
     window.addEventListener('keydown', onKey(true));
@@ -143,6 +152,32 @@ export class GameScene extends Phaser.Scene {
   toggleMute(): void {
     this.sfx.toggle();
     this.onUi?.();
+  }
+
+  toggleView(): void {
+    this.cam = createCamera(this.cam.view === 'flat' ? 'tilt' : 'flat');
+    try { localStorage.setItem(VIEW_KEY, this.cam.view); } catch { /* storage unavailable */ }
+    this.onUi?.();
+  }
+
+  /** Draws `f` at world (x, y), projected: translate to the screen point and scale by depth. */
+  at(g: Phaser.GameObjects.Graphics, x: number, y: number, f: () => void): void {
+    const p = this.cam.project(x, y);
+    g.save();
+    g.translateCanvas(p.x, p.y);
+    g.scaleCanvas(p.s, p.s);
+    f();
+    g.restore();
+  }
+
+  /** World rectangle → projected quad (a trapezoid in tilt; the same rectangle in flat). */
+  quad(g: Phaser.GameObjects.Graphics, x0: number, y0: number, w: number, h: number, mode: 'fill' | 'stroke' = 'fill'): void {
+    const c = this.cam;
+    const a = c.project(x0, y0), b = c.project(x0 + w, y0), d = c.project(x0 + w, y0 + h), e = c.project(x0, y0 + h);
+    const pts = this.quadPts;
+    pts[0]!.set(a.x, a.y); pts[1]!.set(b.x, b.y); pts[2]!.set(d.x, d.y); pts[3]!.set(e.x, e.y);
+    if (mode === 'fill') g.fillPoints(pts, true);
+    else g.strokePoints(pts, true);
   }
 
   sampleInput(v: DeepReadonly<RunState>): InputLevel {
@@ -369,7 +404,8 @@ export class GameScene extends Phaser.Scene {
     if (!d) return; // pool full: drop the number
     d.life = 400;
     d.vy = -0.06;
-    d.text.setText(s).setPosition(x, y).setVisible(true).setAlpha(1);
+    const p = this.cam.project(x, y);
+    d.text.setText(s).setPosition(p.x, p.y).setScale(Math.max(0.6, p.s)).setVisible(true).setAlpha(1);
   }
 
   spawnPuff(x: number, y: number): void {
@@ -412,16 +448,27 @@ export class GameScene extends Phaser.Scene {
     // lane stripes scroll with distance
     g.fillStyle(COL.lane, 1);
     const off = v.distanceU % 120;
-    for (let y = -120 + off; y < H; y += 120) g.fillRect(0, y, W, 60);
+    for (let y = -120 + off; y < H; y += 120) this.quad(g, 0, y, W, 60);
+    if (this.cam.view === 'tilt') {
+      // lane edges, so the road reads as going away from you
+      g.lineStyle(3, COL.laneEdge, 0.8);
+      this.quad(g, 0, -200, W, H + 200, 'stroke');
+    }
     this.drawGates(g, v);
-    for (const t of v.tunas) this.drawTuna(g, t.x, t.y);
-    for (const r of v.rats) this.drawRat(g, r.x, r.y, 1);
-    if (v.boss) this.drawBoss(g, v.boss.x, v.boss.y, v.boss.hp / v.boss.maxHp);
+    // far to near, so nearer things overlap farther ones
+    const sprites: { y: number; draw: () => void }[] = [];
+    for (const t of v.tunas) sprites.push({ y: t.y, draw: () => this.at(g, t.x, t.y, () => this.drawTuna(g, 0, 0)) });
+    for (const r of v.rats) sprites.push({ y: r.y, draw: () => this.at(g, r.x, r.y, () => this.drawRat(g, 0, 0, 1)) });
+    const boss = v.boss;
+    if (boss) sprites.push({ y: boss.y, draw: () => this.at(g, boss.x, boss.y, () => this.drawBoss(g, 0, 0, boss.hp / boss.maxHp)) });
+    sprites.sort((a, b) => a.y - b.y);
+    for (const s of sprites) s.draw();
     this.drawShots(g, v);
     for (const p of this.puffs) {
       if (!p.live) continue;
       const k = 1 - p.life / 250;
-      g.lineStyle(2, 0xffffff, 1 - k).strokeCircle(p.x, p.y, 8 + 18 * k);
+      const q = this.cam.project(p.x, p.y);
+      g.lineStyle(2, 0xffffff, 1 - k).strokeCircle(q.x, q.y, (8 + 18 * k) * q.s);
     }
     if (this.ghost) {
       const t = this.ghost;
@@ -462,18 +509,23 @@ export class GameScene extends Phaser.Scene {
         const label = gateLabel(gate as GatePair['left'], v.cat.weapon);
         const isWeapon = gate.kind === 'weapon' && gate.weapon !== v.cat.weapon;
         const alpha = pair.resolved ? 0.25 : 0.55;
-        g.fillStyle(isWeapon ? COL.weapon : COL.lane, alpha).fillRect(x0 + 4, pair.y - gh, W / 2 - 8, gh * 2);
+        g.fillStyle(isWeapon ? COL.weapon : COL.lane, alpha);
+        this.quad(g, x0 + 4, pair.y - gh, W / 2 - 8, gh * 2);
         // buff stripe on top (green), debuff below (red): extra to the icons and signs
         if (!isWeapon) {
-          g.fillStyle(COL.buff, alpha + 0.2).fillRect(x0 + 4, pair.y - gh, W / 2 - 8, 6);
-          g.fillStyle(COL.debuff, alpha + 0.2).fillRect(x0 + 4, pair.y + gh - 6, W / 2 - 8, 6);
+          g.fillStyle(COL.buff, alpha + 0.2);
+          this.quad(g, x0 + 4, pair.y - gh, W / 2 - 8, 6);
+          g.fillStyle(COL.debuff, alpha + 0.2);
+          this.quad(g, x0 + 4, pair.y + gh - 6, W / 2 - 8, 6);
         }
-        g.lineStyle(3, 0xffffff, pair.resolved ? 0.2 : 0.8).strokeRect(x0 + 4, pair.y - gh, W / 2 - 8, gh * 2);
+        g.lineStyle(3, 0xffffff, pair.resolved ? 0.2 : 0.8);
+        this.quad(g, x0 + 4, pair.y - gh, W / 2 - 8, gh * 2, 'stroke');
         const t = this.gateTexts[ti];
         if (!t) continue;
         ti++;
         const icon = label.icons.map(iconGlyph).join(' ');
-        t.setText(`${icon}\n${label.text}`).setPosition(x0 + W / 4, pair.y).setVisible(true).setAlpha(pair.resolved ? 0.35 : 1);
+        const tp = this.cam.project(x0 + W / 4, pair.y);
+        t.setText(`${icon}\n${label.text}`).setPosition(tp.x, tp.y).setScale(tp.s).setVisible(true).setAlpha(pair.resolved ? 0.35 : 1);
       }
     }
     for (; ti < this.gateTexts.length; ti++) this.gateTexts[ti]!.setVisible(false);
@@ -488,24 +540,28 @@ export class GameScene extends Phaser.Scene {
       const flicker = 0.55 + 0.25 * ((this.frame >> 1) % 2);
       for (let b = 0; b < n; b++) {
         const bx = cat.x + (b - (n - 1) / 2) * lw.beamSpacingU;
-        g.fillStyle(COL.laser, flicker * 0.5).fillRect(bx - lw.beamWidthU / 2, catTopY - reach, lw.beamWidthU, reach);
-        g.fillStyle(0xffffff, flicker).fillRect(bx - 2, catTopY - reach, 4, reach);
+        g.fillStyle(COL.laser, flicker * 0.5);
+        this.quad(g, bx - lw.beamWidthU / 2, catTopY - reach, lw.beamWidthU, reach);
+        g.fillStyle(0xffffff, flicker);
+        this.quad(g, bx - 2, catTopY - reach, 4, reach);
       }
     }
-    for (const p of v.projectiles) {
-      if (p.weapon === 'pencil') {
-        g.fillStyle(COL.pencil, 1).fillRect(p.x - 3, p.y - 8, 6, 13);
-        g.fillStyle(0xf2c9a0, 1).fillTriangle(p.x - 3, p.y - 8, p.x + 3, p.y - 8, p.x, p.y - 13);
-        g.fillStyle(0xff8fa3, 1).fillRect(p.x - 3, p.y + 5, 6, 3);
-      } else if (p.weapon === 'yarn') {
-        g.lineStyle(2, COL.yarn, 0.6).lineBetween(p.x, p.y, p.x - p.vx * 3, p.y - p.vy * 3);
-        g.fillStyle(COL.yarn, 1).fillCircle(p.x, p.y, 6);
-        g.lineStyle(1, 0xffffff, 0.6).strokeCircle(p.x, p.y, 3);
-      } else {
-        g.lineStyle(2, COL.fish, 1).lineBetween(p.x, p.y - 6, p.x, p.y + 6);
-        for (let k = -1; k <= 1; k++) g.lineBetween(p.x - 4, p.y + k * 3, p.x + 4, p.y + k * 3);
-        g.fillStyle(COL.fish, 1).fillTriangle(p.x - 4, p.y - 6, p.x + 4, p.y - 6, p.x, p.y - 10);
-      }
+    for (const q of v.projectiles) this.at(g, q.x, q.y, () => this.drawProjectile(g, { ...q, x: 0, y: 0 }));
+  }
+
+  drawProjectile(g: Phaser.GameObjects.Graphics, p: { weapon: string; x: number; y: number; vx: number; vy: number }): void {
+    if (p.weapon === 'pencil') {
+      g.fillStyle(COL.pencil, 1).fillRect(p.x - 3, p.y - 8, 6, 13);
+      g.fillStyle(0xf2c9a0, 1).fillTriangle(p.x - 3, p.y - 8, p.x + 3, p.y - 8, p.x, p.y - 13);
+      g.fillStyle(0xff8fa3, 1).fillRect(p.x - 3, p.y + 5, 6, 3);
+    } else if (p.weapon === 'yarn') {
+      g.lineStyle(2, COL.yarn, 0.6).lineBetween(p.x, p.y, p.x - p.vx * 3, p.y - p.vy * 3);
+      g.fillStyle(COL.yarn, 1).fillCircle(p.x, p.y, 6);
+      g.lineStyle(1, 0xffffff, 0.6).strokeCircle(p.x, p.y, 3);
+    } else {
+      g.lineStyle(2, COL.fish, 1).lineBetween(p.x, p.y - 6, p.x, p.y + 6);
+      for (let k = -1; k <= 1; k++) g.lineBetween(p.x - 4, p.y + k * 3, p.x + 4, p.y + k * 3);
+      g.fillStyle(COL.fish, 1).fillTriangle(p.x - 4, p.y - 6, p.x + 4, p.y - 6, p.x, p.y - 10);
     }
   }
 
