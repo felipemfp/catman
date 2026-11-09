@@ -124,8 +124,10 @@ test('E2E 8 prod bundle has no test hooks', async ({ browserName }) => {
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
   const files = walk(dir);
-  expect(files.every((f) => /\.(html|js|css)$/.test(f))).toBe(true);
-  for (const f of files) {
+  // code is html/js/css; the only static files are the social image and the favicon (E2E 12)
+  const statics = ['og.png', 'favicon.svg'].map((f) => join(dir, f));
+  expect(files.filter((f) => !statics.includes(f)).every((f) => /\.(html|js|css)$/.test(f))).toBe(true);
+  for (const f of files.filter((x) => !x.endsWith('.png'))) {
     const s = readFileSync(f, 'utf8');
     for (const bad of ['__catman', 'playLog', 'coreReplay']) expect(s.includes(bad), `${f} contains ${bad}`).toBe(false);
   }
@@ -190,4 +192,24 @@ test('E2E 11 view toggle: V and the button switch flat ↔ 2.5D, the choice pers
   await page.getByRole('button', { name: 'Switch to 2.5D view' }).click();
   expect(await page.evaluate(() => window.__catman.view())).toBe('tilt');
   expect(errors).toEqual([]);
+});
+
+test('E2E 12 social: description, Open Graph and Twitter tags; og.png is a 1200×630 PNG; favicon served', async ({ page, request }) => {
+  await page.goto('/');
+  const meta = async (sel: string) => page.locator(sel).getAttribute('content');
+  expect((await meta('meta[name="description"]'))!.length).toBeGreaterThan(50);
+  for (const p of ['og:title', 'og:description', 'og:image', 'og:url', 'og:type', 'og:image:alt']) expect(await meta(`meta[property="${p}"]`)).toBeTruthy();
+  expect(await meta('meta[name="twitter:card"]')).toBe('summary_large_image');
+  const img = await meta('meta[property="og:image"]');
+  expect(img).toMatch(/^https:\/\/[^/]+\/og\.png$/); // crawlers need an absolute URL
+  const res = await request.get('/og.png');
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('image/png');
+  const b = await res.body();
+  // PNG signature, then IHDR width/height as big-endian u32 at bytes 16 and 20
+  expect([...b.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  expect(b.readUInt32BE(16)).toBe(1200);
+  expect(b.readUInt32BE(20)).toBe(630);
+  expect(b.length).toBeLessThan(300_000);
+  expect((await request.get('/favicon.svg')).status()).toBe(200);
 });

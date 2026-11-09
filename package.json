@@ -23,7 +23,8 @@
     "sim": "node src/sim/cli.ts",
     "sim:periodic": "CATMAN_FULL=1 vitest run --project core --project sim",
     "fixture:regen": "node tools/regen-fixtures.ts",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "og:regen": "node tools/og-image.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.6.0",
