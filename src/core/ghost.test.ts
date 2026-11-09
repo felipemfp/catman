@@ -46,6 +46,7 @@ describe('T-codec (F9)', () => {
     expect(codeOf(() => decodeInputLog(b(4)))).toBe('truncated');
     expect(codeOf(() => decodeInputLog(b(4, 0x81)))).toBe('truncated');
     expect(codeOf(() => decodeInputLog(b(4, 0x81, 0x81, 0x81, 0x81, 0x01)))).toBe('varint_overflow');
+    expect(codeOf(() => decodeInputLog(b(4, 0x81, 0x81, 0x81, 0x81)))).toBe('varint_overflow');
     expect(codeOf(() => decodeInputLog(b(4, 0x81, 0x00)))).toBe('non_canonical');
     expect(codeOf(() => decodeInputLog(b(4, 1, 4, 1)))).toBe('non_canonical');
     // 72,001 ticks: 0xC1 0xB2 0x04

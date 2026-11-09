@@ -46,6 +46,15 @@ describe('T-A1 body cap', () => {
   });
 });
 
+describe('aborted upload', () => {
+  it('a body stream that errors → 400 with a log line', async () => {
+    const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"v":')); c.error(new Error('aborted')); } });
+    const r = await worker.fetch(new Request(URL_POST, { method: 'POST', body: stream, headers: { 'content-type': 'application/json' }, duplex: 'half' } as RequestInit), env);
+    expect(r.status).toBe(400);
+    expect(logs.some((l) => l.includes('"route":"POST /api/ghost"') && l.includes('"status":400'))).toBe(true);
+  });
+});
+
 describe('T-A2 validation', () => {
   const cases: [Record<string, unknown> | string, GhostErrorCode | 'bad_json', string?][] = [
     ['[]', 'not_object'],

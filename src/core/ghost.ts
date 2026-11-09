@@ -92,8 +92,8 @@ export function decodeInputLog(bytes: Uint8Array): InputLevel[] {
     let shift = 1;
     let n = 0;
     for (;;) {
+      if (n === 4) throw new GhostDecodeError('varint_overflow'); // a 5th varint byte is overflow even at end of input
       if (i >= bytes.length) throw new GhostDecodeError('truncated');
-      if (n === 4) throw new GhostDecodeError('varint_overflow');
       const b = bytes[i++]!;
       n += 1;
       len += (b & 0x7f) * shift;
