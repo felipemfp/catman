@@ -1,9 +1,9 @@
 import { describe, expect, inject, it } from 'vitest';
-import { config, generateSegment, simulateBossFight, step, view, type Mods, type WeaponId } from '../core/index.ts';
+import { config, createRun, generateSegment, simulateBossFight, step, view, type Mods, type WeaponId } from '../core/index.ts';
 import { runFromScenario } from '../core/testing.ts';
 import { sweep } from './sweep.ts';
 import { check, dominates, summarize, toCsv, type BuildSummary } from './report.ts';
-import { runOne } from './run.ts';
+import { runOne, seedFor } from './run.ts';
 import { insideRepo, parseArgs } from './cli.ts';
 import { chooseSide, createBot } from './bots.ts';
 import type { StatGate, StatKey } from '../core/index.ts';
@@ -173,4 +173,23 @@ describe('bots and tuna', () => {
   };
   it('a hurt bot goes and eats an approaching tuna', () => expect(go(1)).toBe(true));
   it('a bot at full hp leaves it', () => expect(go(config.cat.hp)).toBe(false));
+});
+
+describe('standing still loses (CORE_VERSION 8: homing + charging rats)', () => {
+  // A cat that never moves vs the pencil bot, same 100 seeds. Floors are the levels reached in the v8 pass
+  // (SPEC-balance-sim § Charging rats): a regression guard, not the original 1000 m / 2000 m / 2.5× goal.
+  it.runIf(full)('still cat: median ≤ 1300 m, p90 ≤ 2500 m; moving bot median ≥ 2× the still median', () => {
+    const still: number[] = [];
+    const moving: number[] = [];
+    for (let i = 0; i < 100; i++) {
+      const run = createRun(seedFor(i));
+      for (let t = 0; t < config.run.maxTicks && view(run).over === null; t++) step(run, 0);
+      still.push(Math.floor(view(run).distanceU / 10));
+      moving.push(runOne('pencil', i).distanceM);
+    }
+    const q = (a: number[], p: number) => a.slice().sort((x, y) => x - y)[Math.floor(p * a.length)]!;
+    expect(q(still, 0.5)).toBeLessThanOrEqual(1300);
+    expect(q(still, 0.9)).toBeLessThanOrEqual(2500);
+    expect(q(moving, 0.5)).toBeGreaterThanOrEqual(2 * q(still, 0.5));
+  });
 });

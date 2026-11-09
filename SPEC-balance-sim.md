@@ -194,3 +194,23 @@ Homing alone made rats easier: bots fire straight up, so drifting rats walk into
 | fishbone | 4336 | 0.72 | 0.92 / 0.95 / 0.98 / 0.99 |
 
 Every target passes, including ratKillRate for yarn and fishbone for the first time, except laser median distance at 2.01× (band 1.33×), the same gap as before homing.
+
+## Charging rats (CORE_VERSION 8)
+
+Goal, written before tuning: still cat (input 0 forever) median ≤ 1000 m and p90 ≤ 2000 m; pencil bot median ≥ 2.5× still median (100 seeds).
+
+| try | still median | still p90 | pencil bot median |
+|---|---|---|---|
+| v7 (homing only) | 1343 | 7786 | 4214 |
+| + charge 0.0003/0.5 | 1378 | 4364 | 2833 |
+| + homing only in a 350 U swerve window, frac 0.7 | 1349 | 4635 | 2261 |
+| homing from spawn | 1235 | 4314 | 3259 |
+| faster ramps (frac 0.0014, charge 0.001) | 1585 | 9500 | 5000 |
+| moderate ramps + rat HP ramp 0.003 | 1230 | 2264 | 2215 |
+| + homing from 500 m (shipped) | 1172 | 2264 | 2883 (2.46×) |
+
+**What we learned:** a still cat only dies when a rat survives the trip. Homing hands a still cat its targets: rats converge into its line of fire. The longest still runs had stacked +6 projectiles and pierce, a fan of shots across the lane; they took only 3–5 hits in 7–12 km. So stronger homing made standing still *better*. Rat toughness is what punishes standing still, since a still cat must kill everything while a moving one can dodge.
+
+**Outcome:** goal not fully met. The still-cat median is 1172 m (goal 1000; 22% die at boss 0), p90 2264 m (goal 2000), ratio 2.46× (goal 2.5×). A periodic test guards the reached levels: median ≤ 1300, p90 ≤ 2500, moving ≥ 2×.
+
+Sweep (1000 runs): laser is inside the distance band for the first time since the retune. Pencil is now just under the band (0.70×), and ratKillRate falls under 0.6 for pencil, yarn and fishbone (0.54–0.60): with tougher, charging rats, dodging replaces mowing down. That's the intended shift, but it conflicts with the casual-profile rat-kill target. Felipe's call whether to lower that target or soften rat HP.
