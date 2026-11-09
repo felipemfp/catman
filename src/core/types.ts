@@ -14,7 +14,7 @@ export type Projectile = {
   id: number; weapon: Exclude<WeaponId, 'laser'>; x: number; y: number; vx: number; vy: number;
   w: number; h: number; speedU: number; damage: number; rangeU: number; travelled: number; hitsLeft: number; hitIds: number[];
 };
-export type Boss = { index: number; x: number; y: number; hp: number; maxHp: number };
+export type Boss = { index: number; x: number; y: number; hp: number; maxHp: number; missTicks: number };
 export type Horde = { segmentK: number; alive: number; spawnTick: number };
 export type Tuna = { id: number; x: number; baseY: number; y: number };
 export type RunState = {

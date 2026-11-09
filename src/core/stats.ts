@@ -30,6 +30,8 @@ export function clampMods(m: Mods): void {
 
 function applyOne(m: Mods, stat: StatKey, value: number): void {
   if (isAdditive(stat)) m[stat] += value;
+  // DPS buffs stack linearly (+0.3 per ×1.3 gate), so damage picks don't compound past shape picks
+  else if (value > 1 && onDpsAxis(stat)) m[stat] += value - 1;
   else m[stat] *= value;
 }
 

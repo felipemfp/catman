@@ -59,7 +59,7 @@ function projectile(s: H, p: Projectile): void {
 }
 function boss(s: H, b: Boss | null): void {
   if (b === null) { nul(s); return; }
-  num(s, b.index); num(s, b.x); num(s, b.y); num(s, b.hp); num(s, b.maxHp);
+  num(s, b.index); num(s, b.x); num(s, b.y); num(s, b.hp); num(s, b.maxHp); num(s, b.missTicks);
 }
 function horde(s: H, h: Horde): void {
   num(s, h.segmentK); num(s, h.alive); num(s, h.spawnTick);

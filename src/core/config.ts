@@ -57,7 +57,11 @@ export const config = deepFreeze({
       { fromM: 3000, buffMult: 1.5, buffAdd: 2, debuffMult: 0.8 },
     ],
   },
-  boss: { everyM: 500, clearM: 150, warningM: 30, sizeU: 120, speedUPerTick: 1.2, baseHp: 650, hpGrowth: 1.1, killFreezeTicks: 12, xMarginU: 20 },
+  boss: { everyM: 500, clearM: 150, warningM: 30, sizeU: 120, speedUPerTick: 1.2, baseHp: 650, hpGrowth: 1.1, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.15,
+    /** Sideways tracking toward the cat, U per tick. */
+    trackUPerTick: 0.8,
+    /** Ticks without a hit before the boss speeds up; then +rageRampPerTick × base per tick, up to rageMax × base. */
+    missGraceTicks: 45, rageRampPerTick: 0.02, rageMax: 3 },
   weapons: {
     pencil: { kind: 'projectile' as const, damage: 16, rate: 5, projectiles: 1, pierce: 2, bounces: 0, rangeU: 520, speedU: 14, spreadVx: 0.6, w: 6, h: 16 },
     laser: { kind: 'beam' as const, dps: 70, beams: 1, beamWidthU: 14, beamSpacingU: 22, rangeU: 700, pierce: 0 },

@@ -28,6 +28,26 @@ export function scrollFor(state: DeepReadonly<RunState>): number {
   return Math.min(s.maxUPerTick, s.baseUPerTick + s.rampPerM * (state.distanceU / 10));
 }
 
+/**
+ * Step 5 for the boss: drift toward the cat (at most trackUPerTick, never past it, kept on screen), and descend at
+ * base speed, or faster once missTicks reaches the grace window. A hit in step 4 has already reset missTicks to 0.
+ */
+function moveBoss(b: Boss, catX: number): void {
+  const half = B.sizeU / 2;
+  const dx = catX - b.x;
+  b.x += Math.max(-B.trackUPerTick, Math.min(B.trackUPerTick, dx));
+  b.x = Math.max(half, Math.min(W.widthU - half, b.x));
+  const over = b.missTicks - B.missGraceTicks + 1;
+  const mult = over > 0 ? Math.min(B.rageMax, 1 + B.rageRampPerTick * over) : 1;
+  b.y += B.speedUPerTick * mult;
+  b.missTicks += 1;
+}
+
+/** Boss damage multiplier: pierce taken at gates drills into the boss (SPEC-game-core § Boss). */
+function bossMult(s: RunState): number {
+  return 1 + B.pierceBonus * s.cat.mods.pierceAdd;
+}
+
 export function createState(seed: string): RunState {
   return {
     seed, tick: 0, distanceU: 0, freezeTicks: 0, over: null,
@@ -96,8 +116,10 @@ function beams(s: RunState, ev: CoreEvent[]): void {
         if (showEvent) ev.push({ t: 'damage', x: t.rat.x, y: t.rat.y, amount: dmg * 10 });
         if (t.rat.hp <= 0) killRat(s, t.rat, ev);
       } else if (boss !== null) {
-        boss.hp -= dmg;
-        if (showEvent) ev.push({ t: 'damage', x: boss.x, y: boss.y, amount: dmg * 10 });
+        const bd = dmg * bossMult(s);
+        boss.hp -= bd;
+        boss.missTicks = 0;
+        if (showEvent) ev.push({ t: 'damage', x: boss.x, y: boss.y, amount: bd * 10 });
       }
     }
   }
@@ -142,8 +164,10 @@ function projectiles(s: RunState, ev: CoreEvent[]): void {
     }
     const boss = s.boss;
     if (p.hitsLeft > 0 && boss !== null && overlaps(p.x, p.y, p.w, p.h, boss.x, boss.y, B.sizeU, B.sizeU)) {
-      boss.hp -= p.damage;
-      ev.push({ t: 'damage', x: p.x, y: p.y, amount: p.damage });
+      const bd = p.damage * bossMult(s);
+      boss.hp -= bd;
+      boss.missTicks = 0;
+      ev.push({ t: 'damage', x: p.x, y: p.y, amount: bd });
       p.hitsLeft = 0;
     }
     if (p.hitsLeft <= 0) removed = true;
@@ -160,7 +184,7 @@ function spawnSegment(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
     if (index !== s.bossesSpawned) return; // scenario started on this mark: counted as spawned and killed
     const hp = opts.nextBossHp ?? bossHpFor(index);
     opts.nextBossHp = null;
-    const boss: Boss = { index, x: seg.bossX!, y: -B.sizeU / 2, hp, maxHp: hp };
+    const boss: Boss = { index, x: seg.bossX!, y: -B.sizeU / 2, hp, maxHp: hp, missTicks: 0 };
     s.boss = boss;
     s.bossesSpawned += 1;
     s.cat.cooldown = 0;
@@ -246,7 +270,7 @@ export function stepState(s: RunState, input: InputLevel, opts: RunOpts, step: S
     for (const r of s.rats) r.y = r.baseY + s.distanceU;
     for (const g of s.gates) g.y = g.baseY + s.distanceU;
     for (const t of s.tunas) t.y = t.baseY + s.distanceU;
-    if (s.boss !== null) s.boss.y += B.speedUPerTick;
+    if (s.boss !== null) moveBoss(s.boss, cat.x);
     // 6
     if (cat.invulnTicks === 0) {
       for (let i = 0; i < s.rats.length; i++) {
@@ -382,7 +406,7 @@ export function simulateBossFight(mods: Mods, weapon: WeaponId, bossHp: number, 
   s.cat.x = bossX;
   s.cat.weapon = weapon;
   s.cat.mods = { ...mods };
-  s.boss = { index: 0, x: bossX, y: -B.sizeU / 2, hp: bossHp, maxHp: bossHp };
+  s.boss = { index: 0, x: bossX, y: -B.sizeU / 2, hp: bossHp, maxHp: bossHp, missTicks: 0 };
   const opts: RunOpts = { nextBossHp: null, gates: true };
   const probe: ProbeResult = { killTick: null };
   while (s.over === null) stepState(s, 0, opts, { probe: true }, probe);

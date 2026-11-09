@@ -35,7 +35,7 @@ export function runFromScenario(sc: Scenario): Run {
     s.rats.push({ laneId: 1e9 + i, segmentK: -1, x: r.x, baseY: r.y - s.distanceU, y: r.y, hp: r.hp });
   });
   (sc.tunas ?? []).forEach((t, i) => s.tunas.push({ id: 2e9 + i, x: t.x, baseY: t.y - s.distanceU, y: t.y }));
-  if (sc.boss) s.boss = { index: bosses, x: sc.boss.x, y: sc.boss.y, hp: sc.boss.hp, maxHp: sc.boss.hp };
+  if (sc.boss) s.boss = { index: bosses, x: sc.boss.x, y: sc.boss.y, hp: sc.boss.hp, maxHp: sc.boss.hp, missTicks: 0 };
   return wrapRun(s, { nextBossHp: sc.nextBossHp ?? null, gates: sc.gates !== false });
 }
 
