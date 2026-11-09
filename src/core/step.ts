@@ -53,9 +53,19 @@ export function homingFrac(dM: number): number {
  * Step 5, after scrolling: rats above the lock line drift toward the cat by at most frac × scroll, never past it.
  * Scaled by scroll, so a frozen or stopped lane (boss fight) leaves rat x alone and the lane stays distance-driven.
  */
+/** Extra forward speed per unit scrolled at distance dM: rats charge, so standing still stops working. */
+export function chargeFrac(dM: number): number {
+  const H = config.rat.homing;
+  return Math.min(H.maxCharge, Math.max(0, (dM - H.startM) * H.chargePerM));
+}
+
 function homeRats(s: RunState, scroll: number): void {
-  const frac = homingFrac(s.distanceU / 10);
+  const dM = s.distanceU / 10;
+  const frac = homingFrac(dM);
   if (frac === 0 || s.rats.length === 0) return;
+  // charge: a constant extra forward speed for every rat (moving baseY keeps y = baseY + distanceU true)
+  const charge = chargeFrac(dM) * scroll;
+  if (charge > 0) for (const r of s.rats) { r.baseY += charge; r.y += charge; }
   const step = frac * scroll;
   const lockY = W.catLineY - config.rat.homing.lockU;
   const cx = s.cat.x;

@@ -531,3 +531,11 @@ As the run goes on, rats come for the cat. They spawn exactly where they always 
 - Below the lock line, x is fixed, so the final approach is straight and a cat that sidesteps in time always dodges (homing.test.ts).
 - **The corridor guarantee (F3, F15) now holds only before `homing.startM`.** Generation still keeps spawn positions off the corridor. T-corridor and T-wall-rest check the window before homing starts. The old F15 check ran at max scroll, which now begins at 2500 m, so that case is no longer checked.
 - Rat HP ramp: 0.0003 → 0.0012 per m. Homing rats walk into the firing line, so without it rats stopped being a threat.
+
+## Charging rats (CORE_VERSION 8)
+
+Felipe: a cat could stand still and run for a long time. A still cat reached a 1343 m median, and 1 in 10 still runs passed 7.8 km. Rats now charge diagonally.
+- `chargeFrac(dM) = min(maxCharge, max(0, (dM − startM) × chargePerM))`, with chargePerM 0.0003 and maxCharge 0.5. Every rat advances an extra `chargeFrac × scroll` per tick on top of the lane (it moves `baseY`, so `y = baseY + distanceU` still holds), including inside the lock line, so speed stays constant and readable. Combined with homing, the path is diagonal toward the cat.
+- Homing now starts at 500 m (was 800) and is stronger: fracPerM 0.0004, maxFrac 0.7. lockU stays 250, and a cat that sidesteps once still dodges (homing.test.ts).
+- Rat HP ramp 0.0012 → 0.003 per m.
+- Corridor tests (T-corridor, T-wall-rest) cover the window before 500 m. Only two gates fall in it, so T-wall-rest checks 2–3 gates.

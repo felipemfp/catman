@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { config } from './config.ts';
 import { step, view } from './index.ts';
-import { homingFrac } from './step.ts';
+import { chargeFrac, homingFrac } from './step.ts';
 import { runFromScenario } from './testing.ts';
 
 const H = config.rat.homing;
@@ -75,5 +75,30 @@ describe('homing rats', () => {
     }
     expect(hits).toBe(0);
     expect(passed).toBe(true);
+  });
+});
+
+describe('charging rats (CORE_VERSION 8)', () => {
+  it('chargeFrac is 0 before startM, ramps, caps at maxCharge', () => {
+    expect(chargeFrac(H.startM)).toBe(0);
+    expect(chargeFrac(H.startM + 100)).toBeCloseTo(100 * H.chargePerM, 12);
+    expect(chargeFrac(1e6)).toBe(H.maxCharge);
+  });
+  it('past startM a rat advances faster than the lane by chargeFrac × scroll, before and inside the lock line', () => {
+    for (const y0 of [-200, CAT_Y - H.lockU + 20]) {
+      const run = one(mDist(H.startM + 3000), 270, 270, y0);
+      const r0 = mine(view(run).rats)!.y;
+      const d0 = view(run).distanceU;
+      step(run, 0);
+      const dy = mine(view(run).rats)!.y - r0;
+      const scroll = view(run).distanceU - d0;
+      expect(dy).toBeCloseTo(scroll * (1 + chargeFrac(view(run).distanceU / 10)), 9);
+    }
+  });
+  it('before startM rats move with the lane only', () => {
+    const run = one(mDist(H.startM - 200), 270, 400, 100);
+    const d0 = view(run).distanceU;
+    step(run, 0);
+    expect(mine(view(run).rats)!.y - 100).toBeCloseTo(view(run).distanceU - d0, 9);
   });
 });
