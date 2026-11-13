@@ -31,13 +31,13 @@ function nul(s: H): void {
 }
 function mods(s: H, m: Mods): void {
   num(s, m.damageMult); num(s, m.fireRateMult); num(s, m.rangeMult);
-  num(s, m.pierceAdd); num(s, m.projectilesAdd); num(s, m.moveSpeedMult);
+  num(s, m.pierceAdd); num(s, m.projectilesAdd); num(s, m.moveSpeedMult); num(s, m.spreadMult);
 }
 function cat(s: H, c: Cat): void {
   num(s, c.x); num(s, c.vx); num(s, c.hp); num(s, c.invulnTicks); str(s, c.weapon); mods(s, c.mods); num(s, c.cooldown);
 }
 function rat(s: H, r: Rat): void {
-  num(s, r.laneId); num(s, r.segmentK); num(s, r.x); num(s, r.baseY); num(s, r.y); num(s, r.hp); bool(s, r.guard);
+  num(s, r.laneId); num(s, r.segmentK); num(s, r.x); num(s, r.baseY); num(s, r.y); num(s, r.hp); bool(s, r.guard); num(s, r.slot); num(s, r.lead); num(s, r.half);
 }
 function statGate(s: H, g: StatGate): void {
   str(s, g.kind);

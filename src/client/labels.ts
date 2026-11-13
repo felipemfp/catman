@@ -6,7 +6,7 @@ export type IconId = StatKey | WeaponId;
 export type GateLabel = { icons: IconId[]; signs: ('+' | '−')[]; text: string; buff: boolean[] };
 
 const GLYPHS: Record<IconId, string> = {
-  damageMult: '💥', fireRateMult: '⏩', rangeMult: '📏', pierceAdd: '🗡️', projectilesAdd: '➕', moveSpeedMult: '👟',
+  damageMult: '💥', fireRateMult: '⏩', rangeMult: '📏', pierceAdd: '🗡️', projectilesAdd: '➕', moveSpeedMult: '👟', spreadMult: '↔️',
   pencil: '✏️', laser: '🔦', yarn: '🧶', fishbone: '🐟',
 };
 

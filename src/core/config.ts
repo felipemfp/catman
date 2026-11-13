@@ -25,15 +25,15 @@ export const config = deepFreeze({
     emptyFloor: 0.1,
     emptyStart: 0.4,
     emptyFallM: 2000,
-    columnBase: 3,
+    columnBase: 4,
     columnEveryM: 500,
-    columnCap: 4,
+    columnCap: 6,
     columnSpacingU: 34,
     columnTries: 8,
-    swarmBase: 4,
+    swarmBase: 6,
     swarmEveryM: 300,
-    swarmCap: 10,
-    swarmTries: 4,
+    swarmCap: 14,
+    swarmTries: 8,
     wallSlotSpacingU: 34,
     wallSlotOriginU: 17,
     wallSlots: 15,
@@ -42,7 +42,7 @@ export const config = deepFreeze({
   },
   cat: { widthU: 40, heightU: 48, maxSpeedUPerTick: 9, accelUPerTick2: 1.5, hp: 3, invulnTicks: 60, hitFreezeTicks: 6 },
   rat: {
-    sizeU: 28, spawnYU: -14, baseHp: 12, hpRampPerM: 0.003,
+    sizeU: 28, spawnYU: -14, baseHp: 12, hpRampPerM: 0.0005,
     /** Past startM, rats drift toward the cat by frac × scroll per tick (frac ramps per m, capped); x locks within lockU of the cat line. */
     homing: { startM: 500, fracPerM: 0.0004, maxFrac: 0.7, lockU: 250, chargePerM: 0.0003, maxCharge: 0.5 },
   },
@@ -82,8 +82,8 @@ export const config = deepFreeze({
      * horde: a row of wall slots with a gap. frenzy: a few fast rats that home on the cat.
      */
     horde: { firstTicks: 40, everyTicks: 100, minEveryTicks: 50, gapSlots: 4, speedU: 2.8, homeFrac: 0.25 },
-    frenzy: { firstTicks: 60, everyTicks: 120, minEveryTicks: 60, rats: 5, speedU: 5, homeFrac: 0.8 },
-    sizeU: 120, speedUPerTick: 1.2, baseHp: 500, hpGrowth: 1.17, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.18,
+    frenzy: { firstTicks: 60, everyTicks: 120, minEveryTicks: 60, rats: 8, speedU: 5, homeFrac: 0.8 },
+    sizeU: 120, speedUPerTick: 1.2, baseHp: 500, hpGrowth: 1.3, killFreezeTicks: 12, xMarginU: 20, pierceBonus: 0.18,
     /** Sideways tracking toward the cat, U per tick. */
     trackUPerTick: 0.8,
     /** Ticks without a hit before the boss speeds up; then +rageRampPerTick × base per tick, up to rageMax × base. */
@@ -99,6 +99,9 @@ export const config = deepFreeze({
     multMax: 20,
     moveSpeedMin: 1,
     moveSpeedMax: 3,
+    /** spreadMult: fan step and laser beam width. */
+    spreadMin: 0.4,
+    spreadMax: 3,
     pierceAddMin: 0,
     pierceAddMax: 8,
     projectilesAddMin: 0,

@@ -3,8 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import { config } from './config.ts';
 import { step, view } from './index.ts';
-import { chargeFrac, homingFrac } from './step.ts';
+import { chargeFrac, homingFrac, rowSlots } from './step.ts';
 import { runFromScenario } from './testing.ts';
+import type { DeepReadonly, Rat } from './types.ts';
 
 const H = config.rat.homing;
 const CAT_Y = config.world.catLineY;
@@ -100,5 +101,65 @@ describe('charging rats (CORE_VERSION 8)', () => {
     const d0 = view(run).distanceU;
     step(run, 0);
     expect(mine(view(run).rats)!.y - 100).toBeCloseTo(view(run).distanceU - d0, 9);
+  });
+});
+
+// Felipe: "multiple rats on top of each other, hard to tell how many". Homing pulled every rat to cat.x, so rats
+// in one row collapsed onto a single sprite. Homing now stops a rat where it would touch a rat in its way.
+const RAT = config.rat.sizeU;
+function overlapping(rats: DeepReadonly<Rat[]>): string | null {
+  for (let i = 0; i < rats.length; i++) for (let j = i + 1; j < rats.length; j++) {
+    const a = rats[i]!, b = rats[j]!;
+    if (Math.abs(a.x - b.x) < RAT - 1e-9 && Math.abs(a.y - b.y) < RAT - 1e-9) return `${a.laneId}@${a.x.toFixed(1)},${a.y.toFixed(1)} vs ${b.laneId}@${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+  }
+  return null;
+}
+
+describe('homing rats never stack (CORE_VERSION 13)', () => {
+  it('a row of rats closing on the cat stops side by side, not on top of each other', () => {
+    const rats = [60, 120, 180, 360, 420, 480].map((x) => ({ x, y: -200, hp: 1e9 }));
+    const run = runFromScenario({ seed: 'home0', distanceM: mDist(H.startM + 3000), catX: 270, hp: 1e9, gates: false, weapon: 'laser', mods: { rangeMult: config.clamps.multMin }, rats });
+    let moved = false;
+    for (let i = 0; i < 300; i++) {
+      step(run, 0);
+      const mineRats = view(run).rats.filter((r) => r.laneId >= 1e9 && r.y < CAT_Y - H.lockU);
+      if (mineRats.length < 6) break;
+      expect(overlapping(mineRats)).toBeNull();
+      if (mineRats.some((r) => r.x !== rats.find((q) => q.x === r.x)?.x)) moved = true;
+    }
+    expect(moved).toBe(true);
+  });
+  it('real lanes: a still cat past homing start never sees two homing rats overlap', () => {
+    const W = config.world.widthU;
+    for (const seed of ['home0', 'abcd', 'zz99', 'k2x9']) for (const catX of [config.cat.widthU / 2, 270, W - config.cat.widthU / 2]) {
+      const run = runFromScenario({ seed, distanceM: mDist(H.startM + 1500), catX, hp: 1e9, gates: false, weapon: 'laser', mods: { rangeMult: config.clamps.multMin } });
+      for (let i = 0; i < 3000 && view(run).over === null; i++) {
+        step(run, 0);
+        const homing = view(run).rats.filter((r) => !r.guard);
+        const o = overlapping(homing);
+        expect(o, `${seed} cat ${catX} tick ${i}`).toBeNull();
+        // critic finding: wide rows used to home past the wall when the cat hugged it
+        for (const r of homing) expect(r.x >= RAT / 2 - 1e-9 && r.x <= W - RAT / 2 + 1e-9, `${seed} cat ${catX} tick ${i} rat ${r.laneId} x ${r.x}`).toBe(true);
+      }
+    }
+  });
+});
+
+describe('rowSlots', () => {
+  it('rats closer than sizeU in y (chained) share a row, ranked by x; others keep slot 0', () => {
+    const s = rowSlots([{ x: 60, y: 0 }, { x: 20, y: 10 }, { x: 40, y: 30 }, { x: 50, y: 100 }]);
+    expect(s.map((r) => r.slot)).toEqual([1, -1, 0, 0]);
+    expect(s.map((r) => r.lead)).toEqual([30, 20, 0, 0]);
+    expect(rowSlots([{ x: 5, y: 0 }, { x: 5, y: 0 }]).map((r) => r.slot)).toEqual([-0.5, 0.5]);
+  });
+  it('a gap the cat fits through stays as wide; tighter gaps pack to one rat width', () => {
+    const pass = config.cat.widthU + RAT;
+    // three rats packed on the left (gaps 40 < pass), then a corridor of exactly pass, then one rat
+    const xs = [0, 40, 80, 80 + pass];
+    const slots = rowSlots(xs.map((x) => ({ x, y: 0 }))).map((r) => r.slot * RAT);
+    expect(slots[1]! - slots[0]!).toBeCloseTo(RAT, 9);
+    expect(slots[2]! - slots[1]!).toBeCloseTo(RAT, 9);
+    expect(slots[3]! - slots[2]!).toBeCloseTo(pass, 9);
+    expect(slots[0]! + slots[3]!).toBeCloseTo(0, 9); // the row's span is centred on the cat
   });
 });

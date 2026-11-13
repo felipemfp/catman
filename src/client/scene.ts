@@ -546,9 +546,10 @@ export class GameScene extends Phaser.Scene {
       const reach = Math.min(lw.rangeU * cat.mods.rangeMult, catTopY);
       const flicker = 0.55 + 0.25 * ((this.frame >> 1) % 2);
       for (let b = 0; b < n; b++) {
-        const bx = cat.x + (b - (n - 1) / 2) * lw.beamSpacingU;
+        const bx = cat.x + (b - (n - 1) / 2) * lw.beamSpacingU * cat.mods.spreadMult;
+        const bw = lw.beamWidthU * cat.mods.spreadMult;
         g.fillStyle(COL.laser, flicker * 0.5);
-        this.quad(g, bx - lw.beamWidthU / 2, catTopY - reach, lw.beamWidthU, reach);
+        this.quad(g, bx - bw / 2, catTopY - reach, bw, reach);
         g.fillStyle(0xffffff, flicker);
         this.quad(g, bx - 2, catTopY - reach, 4, reach);
       }

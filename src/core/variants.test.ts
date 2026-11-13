@@ -96,6 +96,14 @@ describe('gate pairs never show the same thing twice (Felipe: "sometimes both sh
     }
     expect(pairs).toBeGreaterThan(5000);
   });
+  it('the two halves never debuff the same stat (Felipe: "both gates reduce range")', () => {
+    const debuff = (g: Gate) => (g.kind === 'weapon' ? g.fallback.debuff.stat : g.debuff.stat);
+    for (const seed of seeds) for (let k = 0; k < 160; k++) {
+      const g = generateSegment(seed, k).gate;
+      if (!g) continue;
+      expect({ seed, k, same: debuff(g.left) === debuff(g.right) }).toEqual({ seed, k, same: false });
+    }
+  });
 });
 
 describe('variant roll', () => {
@@ -270,6 +278,31 @@ describe('waves', () => {
       step(run, 0);
       expect(waveRats()).toBeLessThanOrEqual(prev);
       prev = waveRats();
+    }
+  });
+});
+
+// Critic findings (CORE_VERSION 13 review): fast frenzy rats overtaking a slower horde row stacked at cat.x, and wide
+// rows homed past the walls when the cat hugged one. Every combo fight, three cat positions, every tick.
+describe('wave rats never stack and never leave the lane (every wave variant, cat at both walls and centre)', () => {
+  const RAT = config.rat.sizeU;
+  it('no overlapping pair, every rat on screen', () => {
+    for (const flags of [BOSS_HORDE, BOSS_FRENZY, BOSS_HORDE | BOSS_FRENZY, BOSS_HORDE | BOSS_TWINS, BOSS_FRENZY | BOSS_TWINS]) for (const catX of [config.cat.widthU / 2, W / 2, W - config.cat.widthU / 2]) {
+      const { seed, i } = find(flags);
+      const { run } = intoFight(seed, i, catX);
+      let ticks = 0;
+      for (let t = 0; t < 1500 && view(run).over === null && view(run).boss !== null; t++) {
+        step(run, 0);
+        const rats = view(run).rats.filter((r) => !r.guard);
+        for (const r of rats) expect({ catX, t, x: r.x, on: r.x >= RAT / 2 - 1e-9 && r.x <= W - RAT / 2 + 1e-9 }).toMatchObject({ on: true });
+        for (let a = 0; a < rats.length; a++) for (let b = a + 1; b < rats.length; b++) {
+          const p = rats[a]!, q = rats[b]!;
+          const stacked = Math.abs(p.x - q.x) < RAT - 1e-9 && Math.abs(p.y - q.y) < RAT - 1e-9;
+          if (stacked) expect(`${catX} t${t} ${p.laneId}@${p.x.toFixed(1)},${p.y.toFixed(1)} ${q.laneId}@${q.x.toFixed(1)},${q.y.toFixed(1)}`).toBe("none");
+        }
+        ticks++;
+      }
+      expect(ticks).toBeGreaterThan(200);
     }
   });
 });
