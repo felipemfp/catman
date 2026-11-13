@@ -161,8 +161,8 @@ These are guarantees that a player **can** dodge, not that every state is safe: 
 | fishbone | projectile | 8 × 12, 5 projectiles, wide `spreadVx` |
 
 **Stats and clamps (F8).**
-- `mods` start at `damageMult` 1, `fireRateMult` 1, `rangeMult` 1, `pierceAdd` 0, `projectilesAdd` 0, `moveSpeedMult` 1.
-- Gate multipliers multiply; adds add. Clamps after every gate: `moveSpeedMult` `[1, 3]` (buff-only: the reach invariants assume speed 1.0), other multipliers `[0.25, 20]`, `pierceAdd` `[0, 8]`, `projectilesAdd` `[0, 6]`. Additive stats are buff-only, so their floors never bind.
+- `mods` start at `damageMult` 1, `fireRateMult` 1, `rangeMult` 1, `pierceAdd` 0, `projectilesAdd` 0, `moveSpeedMult` 1, `spreadMult` 1.
+- Gate multipliers multiply; adds add. Clamps after every gate: `moveSpeedMult` `[1, 3]` (buff-only: the reach invariants assume speed 1.0), `spreadMult` `[0.4, 3]` (CORE_VERSION 13), other multipliers `[0.25, 20]`, `pierceAdd` `[0, 8]`, `projectilesAdd` `[0, 6]`. Additive stats are buff-only, so their floors never bind.
 - Effective pierce ≥ 0; effective projectiles in `[1, 9]`.
 
 **Gates (F5, F7, F10).**
@@ -265,7 +265,7 @@ These are guarantees that a player **can** dodge, not that every state is safe: 
 export type InputLevel = -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4;
 export type EndCause = 'rats' | 'boss' | 'timeout';
 export type WeaponId = 'pencil' | 'laser' | 'yarn' | 'fishbone';
-export type StatKey = 'damageMult' | 'fireRateMult' | 'rangeMult' | 'pierceAdd' | 'projectilesAdd' | 'moveSpeedMult';
+export type StatKey = 'damageMult' | 'fireRateMult' | 'rangeMult' | 'pierceAdd' | 'projectilesAdd' | 'moveSpeedMult' | 'spreadMult';
 export type Mods = Record<StatKey, number>;
 export type StatGate = { kind: 'stat'; buff: { stat: StatKey; value: number }; debuff: { stat: StatKey; value: number } };
 export type WeaponGate = { kind: 'weapon'; weapon: WeaponId; fallback: StatGate };
@@ -617,3 +617,29 @@ Felipe: "weapon gates still look unprotected, so there's no challenge to swap to
   - a cat that holds the box without shooting gets hit before it takes the gate
 - **lane.test.ts.** The no-rat-in-corridor check skips guard segments past `homing.startM`.
 - **Sweep (1000 runs).** Medians drop about 5–7%, since a guarded weapon now costs something. Boss fights cause 0.423 of deaths, and every variant line still passes. The same four older lines still fail.
+
+## No stacking, distinct debuffs, bigger hordes, spread gates (CORE_VERSION 13)
+
+Felipe's playtest feedback: "multiple rats on top of each other, hard to tell how many", "both gates reduce range, so with a small range both are downgrades", "too few rats in a horde", and "add a gate stat to increase/decrease spread".
+
+**No stacking** (`step.ts` `rowSlots`, `homeToward`). Homing used to pull every rat to `cat.x`, so a row collapsed onto one sprite. Now:
+- At spawn (lane segment, horde wave, frenzy wave, scenario), rats whose y are closer than `rat.sizeU`, chained, form a **row**. Each rat gets a fixed `slot` (in rat widths) and a `lead` (row max y − own y). Both live on `Rat` and are hashed.
+- Within a row, ranked by x: neighbours closer than `cat.widthU + rat.sizeU` pack to one rat width apart. Wider gaps (a wall's corridor, a horde wave's hole) keep their width. The row's span is centred on 0.
+- Homing moves a rat toward `cat.x + slot × sizeU` (was `cat.x`), at most `frac × scroll`, never past it. A row locks its x together, when `y + lead > lockY`.
+- **Why it never overlaps:** two rats in a row keep x order and their targets sit ≥ sizeU apart. `x ↦ x + clamp(t − x, −s, s)` is monotone and translation-equivariant, so the gap between them never drops below `min(initial gap, target gap)` ≥ sizeU. Rows from different segments never share y (segU 250 > bandU 150 + sizeU).
+- The row's centre is clamped so its whole span stays on screen (`half` = half-span in rat widths, on `Rat` and hashed). It's one shift per row, so the argument above still holds. A cat hugging a wall no longer pulls rows past it.
+- Slots are fixed at spawn, so kills don't move other rats and T-lane (F2) holds.
+- **Fight waves** (`waveMove`) aren't lane, so F2 doesn't bind them, and they have a simpler guarantee: every move is clamped against every rat.
+  - Forward, a wave rat stops one rat length behind a rat ahead in its column, so a 5 U/tick frenzy rat queues behind a 2.8 U/tick horde rat.
+  - Sideways, it stops touching a rat level with it.
+  - A new wave spawns as a block, lifted just enough to clear rats still near the top.
+  - No move creates an overlap. A pure slot scheme couldn't give this, because frenzy rats overtake horde rows. Found by a cold critic pass; variants.test.ts checks every wave variant with the cat at both walls and the centre. An earlier draft that stopped a rat at the nearest blocker broke T-lane: the fast-kill run freed blocked rats earlier.
+- Tests: homing.test.ts, "homing rats never stack" (a crafted row, and 4 real seeds × 3000 ticks with no overlapping non-guard pair) and `rowSlots` (row grouping, ranks, gap keeping). guard.test.ts, "holds the box": the cat now really kills nothing (min range, damage and fire rate, plus an asserted zero guard kills). On v12 a homing lane rat stacking onto the cat could supply the hit.
+
+**Distinct debuffs** (`lane.ts` `drawStatGate`). The second stat half avoids the other half's buff **and** debuff stat. Its buff is drawn only from stats that still have an allowed debuff, so the draw never dead-ends. Test: variants.test.ts, 400 seeds × 4 km, failed on v12.
+
+**Bigger hordes** (`config.lane`). Column 3→4 base, cap 4→6. Swarm 4→6 base, cap 10→14, tries 4→8 so the extra rats find room.
+
+**Spread** (`spreadMult`). A new multiplicative stat, clamped to `[spreadMin 0.4, spreadMax 3]`. It scales the fan step between projectiles (`spreadVx`) and, for the laser, the beam width and beam spacing. `effSpread(weapon, m)` is `spreadVx × m` or `beamWidthU × m`. Wider is the buff side (↔️ +%) and narrower the debuff. It's in `DEBUFFABLE` and off the DPS axis. A single-shot pencil or yarn sees the fan only once it has +projectiles (Felipe chose "fan + beam width"). Tests: spread.test.ts (fan, beam hit, eff direction, clamps, offered as buff and debuff), plus the T-clamps and F5 rows.
+
+**Retune** (the sweep after the four changes failed rat kill rate, boss death share and frenzy share). Spread rows no longer die in one firing line, and walls home as wide blocks. `rat.hpRampPerM` 0.003 → 0.0005, `boss.hpGrowth` 1.17 → 1.3, frenzy wave 5 → 8 rats. 1000-run sweep (/tmp/catman-sim/final1), after the wave fix: every line passes. Rat kill rate 0.63 / 0.67 / 0.68 / 0.66 (pencil / laser / yarn / fishbone), bossKillRate[0] 0.91–0.95, boss share of deaths 0.483, horde 0.250, twins 0.637, medians 2275–3139 m, no dominance. **Thin:** frenzy share of boss deaths is 0.152 against 0.15. Queued frenzy rats are less deadly, and the next nudge is `frenzy.rats` 8 → 9.

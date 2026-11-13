@@ -5,7 +5,7 @@ import { config } from './config.ts';
 import { generateSegment, step, view, validateGate } from './index.ts';
 import { corridorHalfU, segU, corridorX } from './lane.ts';
 import {
-  catTopY, clampMods, defaultMods, effBounces, effDamage, effFireRate, effPierce, effProjectiles, effRange, isAdditive, tierFor, DEBUFFABLE,
+  catTopY, clampMods, defaultMods, effBounces, effDamage, effFireRate, effPierce, effProjectiles, effRange, effSpread, isAdditive, tierFor, DEBUFFABLE,
 } from './stats.ts';
 import { corridorFollower, runFromScenario, stateOf } from './testing.ts';
 
@@ -115,6 +115,7 @@ function effStat(w: WeaponId, m: Mods, stat: StatKey): number {
     case 'pierceAdd': return w === 'yarn' ? effBounces(m) : effPierce(w, m);
     case 'projectilesAdd': return effProjectiles(w, m);
     case 'moveSpeedMult': return m.moveSpeedMult;
+    case 'spreadMult': return effSpread(w, m);
   }
 }
 

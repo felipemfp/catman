@@ -5,7 +5,7 @@ import { overlaps } from './math.ts';
 import { stepCat } from './cat.ts';
 import { BOSS_FRENZY, BOSS_HORDE, BOSS_TWINS, bossIndexOfSegment, bossMarkK, bossVariant, generateSegment, ratHpAt, segU } from './lane.ts';
 import { createRng, randInt, randReal } from './rng.ts';
-import { applyStatGate, catTopY, defaultMods, effBounces, effPierce, effProjectiles } from './stats.ts';
+import { applyStatGate, catTopY, defaultMods, effBounces, effPierce, effProjectiles, effSpread } from './stats.ts';
 
 export type StepOpts = { probe: boolean };
 /** Run-level options that are not part of the hashed state (scenario-only). */
@@ -15,6 +15,8 @@ export type ProbeResult = { killTick: number | null };
 const W = config.world;
 const C = config.cat;
 const RAT = config.rat.sizeU;
+/** A gap between two rats of a row that the cat's body fits through; homing keeps such gaps open. */
+const PASS_GAP = config.cat.widthU + RAT;
 const B = config.boss;
 
 export function bossHpFor(index: number): number {
@@ -80,12 +82,86 @@ function homeRats(s: RunState, scroll: number): void {
   if (charge > 0) for (const r of s.rats) if (!r.guard) { r.baseY += charge; r.y += charge; }
   const step = frac * scroll;
   const lockY = W.catLineY - config.rat.homing.lockU;
-  const cx = s.cat.x;
   for (const r of s.rats) {
-    if (r.guard || r.y > lockY) continue;
-    const d = cx - r.x;
-    r.x += d > 0 ? Math.min(step, d) : Math.max(-step, d);
+    if (r.guard || r.y + r.lead > lockY) continue;
+    homeToward(r, s.cat.x, step);
   }
+}
+
+/**
+ * Moves r toward its slot beside the cat (cat.x + slot × sizeU) by at most `step`, never past it.
+ * SPEC-game-core § No stacking: two rats of a row keep x order and slots one rat width apart, and this move is
+ * monotone in x, so their gap never drops below sizeU. Slots are fixed at spawn, so the lane stays independent of kills.
+ */
+function homeToward(r: Rat, cx: number, step: number): void {
+  moveToward(r, slotTarget(r, cx), step);
+}
+
+/**
+ * cat.x + slot × sizeU, with the row's centre clamped so its whole span stays on screen (the same shift for every rat
+ * of the row, so the no-overlap argument holds). A row wider than the lane centres on the lane.
+ */
+function slotTarget(r: Rat, cx: number): number {
+  const lo = RAT / 2 + r.half * RAT;
+  const hi = W.widthU - RAT / 2 - r.half * RAT;
+  const c = lo > hi ? W.widthU / 2 : Math.min(hi, Math.max(lo, cx));
+  return c + r.slot * RAT;
+}
+
+function moveToward(r: Rat, target: number, step: number): void {
+  const d = target - r.x;
+  r.x += d > 0 ? Math.min(step, d) : Math.max(-step, d);
+}
+
+/**
+ * Moves a fight-wave rat (SPEC-game-core § No stacking, waves). Waves aren't lane (F2 doesn't bind), so every move is
+ * clamped against every rat instead: forward it stops one rat length behind a rat ahead in its column (a fast frenzy
+ * rat queues behind a horde rat), sideways it stops touching a rat level with it. No move creates an overlap.
+ */
+function waveMove(s: RunState, r: Rat, dy: number, target: number | null, step: number): void {
+  let y = r.y + dy;
+  for (const o of s.rats) {
+    if (o === r || Math.abs(o.x - r.x) >= RAT || o.y < r.y + RAT) continue; // only rats ahead and not already overlapping
+    y = Math.min(y, o.y - RAT);
+  }
+  y = Math.max(y, r.y);
+  r.baseY += y - r.y;
+  r.y = y;
+  if (target === null) return;
+  const d = target - r.x;
+  let to = d > 0 ? r.x + Math.min(step, d) : r.x + Math.max(-step, d);
+  for (const o of s.rats) {
+    if (o === r || Math.abs(o.y - r.y) >= RAT || Math.abs(o.x - r.x) < RAT) continue;
+    if (to > r.x && o.x > r.x) to = Math.min(to, o.x - RAT);
+    else if (to < r.x && o.x < r.x) to = Math.max(to, o.x + RAT);
+  }
+  r.x = to;
+}
+
+/**
+ * Slots and leads for rats spawned together (y grows toward the cat). Rats whose y are closer than sizeU, chained,
+ * share a row. Ranked by x (ties by index), neighbours closer than a gap the cat fits through (cat width + sizeU)
+ * pack to one rat width apart; wider gaps (a wall's corridor, a horde wave's hole) keep their width. Slots are in
+ * rat widths, centred on 0; half = the row's half-span in rat widths; lead = row max y − y.
+ */
+export function rowSlots(rats: readonly { x: number; y: number }[]): { slot: number; lead: number; half: number }[] {
+  const order = rats.map((_, i) => i).sort((a, b) => rats[a]!.y - rats[b]!.y || a - b);
+  const out = rats.map(() => ({ slot: 0, lead: 0, half: 0 }));
+  let start = 0;
+  for (let i = 1; i <= order.length; i++) {
+    if (i < order.length && rats[order[i]!]!.y - rats[order[i - 1]!]!.y < RAT) continue;
+    const row = order.slice(start, i).sort((a, b) => rats[a]!.x - rats[b]!.x || a - b);
+    const maxY = rats[order[i - 1]!]!.y;
+    const pos = [0];
+    for (let r = 1; r < row.length; r++) {
+      const gap = rats[row[r]!]!.x - rats[row[r - 1]!]!.x;
+      pos.push(pos[r - 1]! + (gap >= PASS_GAP ? gap : RAT));
+    }
+    const mid = (pos[0]! + pos[pos.length - 1]!) / 2;
+    row.forEach((j, r) => { out[j] = { slot: (pos[r]! - mid) / RAT, lead: maxY - rats[j]!.y, half: mid / RAT }; });
+    start = i;
+  }
+  return out;
 }
 
 /** Boss damage multiplier: pierce taken at gates drills into the boss (SPEC-game-core § Boss). */
@@ -130,19 +206,31 @@ function spawnWave(s: RunState, f: Fight, kind: 'horde' | 'frenzy'): void {
   const hp = ratHpAt(s.distanceU / 10);
   const y = config.rat.spawnYU;
   const base = s.distanceU;
+  let wave: { x: number; y: number }[];
   if (kind === 'horde') {
     const L = config.lane;
     const gap = randInt(rng, L.wallSlots - B.horde.gapSlots + 1);
-    for (let i = 0; i < L.wallSlots; i++) {
-      if (i >= gap && i < gap + B.horde.gapSlots) continue;
-      s.rats.push({ laneId: HORDE_ID + s.nextWaveId++, segmentK: HORDE_K, x: L.wallSlotOriginU + L.wallSlotSpacingU * i, baseY: y - base, y, hp, guard: false });
-    }
+    wave = [];
+    for (let i = 0; i < L.wallSlots; i++) if (i < gap || i >= gap + B.horde.gapSlots) wave.push({ x: L.wallSlotOriginU + L.wallSlotSpacingU * i, y });
   } else {
-    for (let i = 0; i < B.frenzy.rats; i++) {
-      const x = randReal(rng, RAT / 2, W.widthU - RAT / 2);
-      s.rats.push({ laneId: FRENZY_ID + s.nextWaveId++, segmentK: FRENZY_K, x, baseY: y - base - i * 40, y: y - i * 40, hp, guard: false });
+    wave = Array.from({ length: B.frenzy.rats }, (_, i) => ({ x: randReal(rng, RAT / 2, W.widthU - RAT / 2), y: y - i * 40 }));
+  }
+  // the whole wave spawns just high enough to clear any rat still near the top (no stacking at spawn)
+  let lift = 0;
+  for (let moved = true; moved;) {
+    moved = false;
+    for (const n of wave) for (const o of s.rats) {
+      const ny = n.y - lift;
+      if (Math.abs(o.x - n.x) < RAT && Math.abs(o.y - ny) < RAT) { lift += ny - (o.y - RAT); moved = true; }
     }
   }
+  const slots = rowSlots(wave);
+  const segmentK = kind === 'horde' ? HORDE_K : FRENZY_K;
+  const idBase = kind === 'horde' ? HORDE_ID : FRENZY_ID;
+  wave.forEach((r, i) => {
+    const ry = r.y - lift;
+    s.rats.push({ laneId: idBase + s.nextWaveId++, segmentK, x: r.x, baseY: ry - base, y: ry, hp, guard: false, ...slots[i]! });
+  });
   s.rats.sort((a, b) => a.laneId - b.laneId);
 }
 
@@ -161,12 +249,8 @@ function fightWaves(s: RunState, f: Fight): void {
   for (const r of s.rats) {
     if (r.segmentK !== HORDE_K && r.segmentK !== FRENZY_K) continue;
     const w = r.segmentK === FRENZY_K ? B.frenzy : B.horde;
-    r.baseY += w.speedU;
-    r.y += w.speedU;
-    if (r.y > lockY) continue;
-    const step = w.homeFrac * w.speedU;
-    const d = cx - r.x;
-    r.x += d > 0 ? Math.min(step, d) : Math.max(-step, d);
+    const homing = r.y + w.speedU + r.lead <= lockY;
+    waveMove(s, r, w.speedU, homing ? slotTarget(r, cx) : null, w.homeFrac * w.speedU);
   }
 }
 
@@ -188,7 +272,7 @@ function fire(s: RunState): void {
   const hitsLeft = 1 + (weapon === 'yarn' ? effBounces(cat.mods) : effPierce(weapon, cat.mods));
   for (let i = 0; i < n; i++) {
     s.projectiles.push({
-      id: s.nextProjectileId++, weapon, x: cat.x, y: catTopY, vx: (i - (n - 1) / 2) * w.spreadVx, vy: -w.speedU,
+      id: s.nextProjectileId++, weapon, x: cat.x, y: catTopY, vx: (i - (n - 1) / 2) * effSpread(weapon, cat.mods), vy: -w.speedU,
       w: w.w, h: w.h, speedU: w.speedU, damage: w.damage * cat.mods.damageMult, rangeU: w.rangeU * cat.mods.rangeMult,
       travelled: 0, hitsLeft, hitIds: [],
     });
@@ -219,14 +303,15 @@ function beams(s: RunState, ev: CoreEvent[]): void {
   const maxTargets = 1 + effPierce('laser', m);
   const dmg = (lw.dps * m.damageMult * m.fireRateMult) / 60;
   const showEvent = s.tick % config.beamEventEveryTicks === 0;
+  const beamW = effSpread('laser', m);
   for (let b = 0; b < n; b++) {
-    const bx = cat.x + (b - (n - 1) / 2) * lw.beamSpacingU;
+    const bx = cat.x + (b - (n - 1) / 2) * lw.beamSpacingU * m.spreadMult;
     const targets: BeamTarget[] = [];
     for (const r of s.rats) {
-      if (r.hp > 0 && overlaps(bx, cy, lw.beamWidthU, h, r.x, r.y, RAT, RAT)) targets.push({ y: r.y, id: r.laneId, rat: r, boss: null });
+      if (r.hp > 0 && overlaps(bx, cy, beamW, h, r.x, r.y, RAT, RAT)) targets.push({ y: r.y, id: r.laneId, rat: r, boss: null });
     }
     for (const boss of bossesOf(s)) {
-      if (overlaps(bx, cy, lw.beamWidthU, h, boss.x, boss.y, B.sizeU, B.sizeU)) targets.push({ y: boss.y, id: -1 - boss.half, rat: null, boss });
+      if (overlaps(bx, cy, beamW, h, boss.x, boss.y, B.sizeU, B.sizeU)) targets.push({ y: boss.y, id: -1 - boss.half, rat: null, boss });
     }
     targets.sort((a, c) => (c.y - a.y) || (a.id - c.id));
     const count = Math.min(maxTargets, targets.length);
@@ -339,10 +424,11 @@ function spawnSegment(s: RunState, opts: RunOpts, ev: CoreEvent[]): void {
   }
   if (seg.rats.length === 0) return;
   const needSort = s.rats.length > 0 && s.rats[s.rats.length - 1]!.laneId > seg.rats[0]!.laneId;
-  for (const r of seg.rats) {
+  const slots = rowSlots(seg.rats.map((r) => ({ x: r.x, y: -r.dy })));
+  seg.rats.forEach((r, i) => {
     const baseY = baseOff - r.dy;
-    s.rats.push({ laneId: r.laneId, segmentK: k, x: r.x, baseY, y: baseY + s.distanceU, hp: r.hp, guard: seg.kind === 'guard' });
-  }
+    s.rats.push({ laneId: r.laneId, segmentK: k, x: r.x, baseY, y: baseY + s.distanceU, hp: r.hp, guard: seg.kind === 'guard', ...slots[i]! });
+  });
   if (needSort) s.rats.sort((a, b) => a.laneId - b.laneId);
   s.hordes.push({ segmentK: k, alive: seg.rats.length, spawnTick: s.tick });
 }

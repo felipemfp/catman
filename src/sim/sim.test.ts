@@ -61,7 +61,7 @@ describe('cli', () => {
 function readoutAgrees(seed: string, weapon: WeaponId, mods: Partial<Mods>, hpFactor: number): { onPace: boolean; died: boolean } {
   const bossK = bossMarkK(seed, 0);
   const bossX = generateSegment(seed, bossK).bossX!;
-  const m = { damageMult: 1, fireRateMult: 1, rangeMult: 1, pierceAdd: 0, projectilesAdd: 0, moveSpeedMult: 1, ...mods };
+  const m = { damageMult: 1, fireRateMult: 1, rangeMult: 1, pierceAdd: 0, projectilesAdd: 0, moveSpeedMult: 1, spreadMult: 1, ...mods };
   const base = simulateBossFight(m, weapon, 1e12, bossX).damageByReach;
   const run = runFromScenario({ seed, distanceM: bossK * config.lane.segmentM - 50, weapon, mods, hp: 1e9, catX: bossX, nextBossHp: base * hpFactor });
   let onPace: boolean | null = null;

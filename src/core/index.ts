@@ -6,7 +6,7 @@ export { config, type CoreConfig } from './config.ts';
 export { type Run, createRun, step, view, hashState } from './run.ts';
 export { setFrozenViews } from './view.ts';
 export { scrollFor, bossHpFor, simulateBossFight, variantHpMult, HORDE_K, FRENZY_K } from './step.ts';
-export { validateGate, effDamage, effFireRate, effRange, effPierce, effProjectiles, onDpsAxis, isAdditive, catTopY } from './stats.ts';
+export { validateGate, effDamage, effFireRate, effRange, effSpread, effPierce, effProjectiles, onDpsAxis, isAdditive, catTopY } from './stats.ts';
 export { generateSegment, bossMarkK, bossVariant, BOSS_HORDE, BOSS_FRENZY, BOSS_TWINS } from './lane.ts';
 export { createRng } from './rng.ts';
 export { levelToward } from './cat.ts';

@@ -120,11 +120,15 @@ export function ratHpAt(dM: number): number {
   return config.rat.baseHp * (1 + config.rat.hpRampPerM * dM);
 }
 
-/** A stat gate whose buff is any stat but `avoid` (the other half's buff, so a pair never offers the same thing twice). */
-function drawStatGate(rng: () => number, tier: { buffMult: number; buffAdd: number; debuffMult: number }, avoid: StatKey | null = null): StatGate {
-  const pool = avoid === null ? STAT_KEYS : STAT_KEYS.filter((s) => s !== avoid);
+/**
+ * A stat gate that differs from the other half of its pair: its buff is not `avoid.buff` and its debuff is not
+ * `avoid.debuff` (so a pair never offers the same thing twice, nor two cuts to the same stat).
+ */
+function drawStatGate(rng: () => number, tier: { buffMult: number; buffAdd: number; debuffMult: number }, avoid: StatGate | null = null): StatGate {
+  const debuffsFor = (b: StatKey) => allowedDebuffs(b).filter((d) => d !== avoid?.debuff.stat);
+  const pool = STAT_KEYS.filter((s) => s !== avoid?.buff.stat && debuffsFor(s).length > 0);
   const buffStat: StatKey = pool[randInt(rng, pool.length)]!;
-  const allowed = allowedDebuffs(buffStat);
+  const allowed = debuffsFor(buffStat);
   const debuffStat: StatKey = allowed[randInt(rng, allowed.length)]!;
   return {
     kind: 'stat',
@@ -145,9 +149,9 @@ function drawGatePair(rng: () => number, k: number): GatePair {
     if (side === 0) left = wg;
     else right = wg;
   }
-  const buffOf = (g: Gate) => (g.kind === 'weapon' ? g.fallback.buff.stat : g.buff.stat);
-  if (left === null) left = drawStatGate(rng, tier, right === null ? null : buffOf(right));
-  if (right === null) right = drawStatGate(rng, tier, buffOf(left));
+  const statOf = (g: Gate): StatGate => (g.kind === 'weapon' ? g.fallback : g);
+  if (left === null) left = drawStatGate(rng, tier, right === null ? null : statOf(right));
+  if (right === null) right = drawStatGate(rng, tier, statOf(left));
   const baseY = config.gates.spawnYU - config.gates.dyU - k * segU;
   return { laneId: k * 64, baseY, y: baseY + k * segU, left, right, resolved: false };
 }

@@ -2,14 +2,18 @@
 export type InputLevel = -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4;
 export type EndCause = 'rats' | 'boss' | 'timeout';
 export type WeaponId = 'pencil' | 'laser' | 'yarn' | 'fishbone';
-export type StatKey = 'damageMult' | 'fireRateMult' | 'rangeMult' | 'pierceAdd' | 'projectilesAdd' | 'moveSpeedMult';
+export type StatKey = 'damageMult' | 'fireRateMult' | 'rangeMult' | 'pierceAdd' | 'projectilesAdd' | 'moveSpeedMult' | 'spreadMult';
 export type Mods = Record<StatKey, number>;
 export type StatGate = { kind: 'stat'; buff: { stat: StatKey; value: number }; debuff: { stat: StatKey; value: number } };
 export type WeaponGate = { kind: 'weapon'; weapon: WeaponId; fallback: StatGate };
 export type Gate = StatGate | WeaponGate;
 export type Cat = { x: number; vx: number; hp: number; invulnTicks: number; weapon: WeaponId; mods: Mods; cooldown: number };
 /** guard: part of a gate guard block, which holds its place in front of the gate (no homing, no charge). */
-export type Rat = { laneId: number; segmentK: number; x: number; baseY: number; y: number; hp: number; guard: boolean };
+/**
+ * slot: where the rat homes, in rat widths from the cat (rats sharing a row get side-by-side slots, so homing never
+ * stacks them). half: the row's half-span in rat widths, to keep the row on screen. lead: how far ahead (in y) its row's lead rat is, so a whole row locks its x together.
+ */
+export type Rat = { laneId: number; segmentK: number; x: number; baseY: number; y: number; hp: number; guard: boolean; slot: number; lead: number; half: number };
 export type GatePair = { laneId: number; baseY: number; y: number; left: Gate; right: Gate; resolved: boolean };
 export type Projectile = {
   id: number; weapon: Exclude<WeaponId, 'laser'>; x: number; y: number; vx: number; vy: number;
@@ -56,6 +60,6 @@ export type CoreEvent =
   | { t: 'ended'; cause: EndCause; score: number; tick: number };
 
 /** Declaration order of StatKey, used for draws and hashing (never iterate object keys). */
-export const STAT_KEYS: readonly StatKey[] = ['damageMult', 'fireRateMult', 'rangeMult', 'pierceAdd', 'projectilesAdd', 'moveSpeedMult'];
+export const STAT_KEYS: readonly StatKey[] = ['damageMult', 'fireRateMult', 'rangeMult', 'pierceAdd', 'projectilesAdd', 'moveSpeedMult', 'spreadMult'];
 /** Declaration order of WeaponId, used for draws. */
 export const WEAPON_IDS: readonly WeaponId[] = ['pencil', 'laser', 'yarn', 'fishbone'];

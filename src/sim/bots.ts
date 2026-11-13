@@ -1,6 +1,6 @@
 // Scripted bots for the balance sweep (SPEC-balance-sim § Bots).
 import {
-  catTopY, config, effProjectiles, effRange, generateSegment, levelToward, onDpsAxis, scrollFor,
+  catTopY, config, effProjectiles, effRange, effSpread, generateSegment, levelToward, onDpsAxis, scrollFor,
   type DeepReadonly, type Gate, type InputLevel, type RunState, type StatKey, type WeaponId,
 } from '../core/index.ts';
 
@@ -46,11 +46,11 @@ function firingHalfWidth(v: DeepReadonly<RunState>): number {
   const n = effProjectiles(weapon, v.cat.mods);
   if (weapon === 'laser') {
     const lw = config.weapons.laser;
-    return ((n - 1) / 2) * lw.beamSpacingU + lw.beamWidthU / 2;
+    return ((n - 1) / 2) * lw.beamSpacingU * v.cat.mods.spreadMult + effSpread('laser', v.cat.mods) / 2;
   }
   const w = config.weapons[weapon];
   const range = effRange(weapon, v.cat.mods);
-  return ((n - 1) / 2) * w.spreadVx * (range / w.speedU) + w.w / 2;
+  return ((n - 1) / 2) * effSpread(weapon, v.cat.mods) * (range / w.speedU) + w.w / 2;
 }
 
 function safe(v: DeepReadonly<RunState>, x: number, scroll: number): boolean {

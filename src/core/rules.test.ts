@@ -136,17 +136,17 @@ describe('T-clamps (F8)', () => {
     const down = defaultMods();
     const buffs: StatGate['buff'][] = [
       { stat: 'damageMult', value: t.buffMult }, { stat: 'fireRateMult', value: t.buffMult }, { stat: 'rangeMult', value: t.buffMult },
-      { stat: 'pierceAdd', value: t.buffAdd }, { stat: 'projectilesAdd', value: t.buffAdd }, { stat: 'moveSpeedMult', value: t.buffMult },
+      { stat: 'pierceAdd', value: t.buffAdd }, { stat: 'projectilesAdd', value: t.buffAdd }, { stat: 'moveSpeedMult', value: t.buffMult }, { stat: 'spreadMult', value: t.buffMult },
     ];
     for (let i = 0; i < 50; i++) for (const b of buffs) applyStatGate(up, { kind: 'stat', buff: b, debuff: { stat: 'rangeMult', value: 1 } });
     for (let i = 0; i < 50; i++) {
-      for (const d of ['damageMult', 'fireRateMult', 'rangeMult'] as const) {
+      for (const d of ['damageMult', 'fireRateMult', 'rangeMult', 'spreadMult'] as const) {
         applyStatGate(down, { kind: 'stat', buff: { stat: 'moveSpeedMult', value: 1 }, debuff: { stat: d, value: t.debuffMult } });
       }
     }
     const c = config.clamps;
-    expect(up).toEqual({ damageMult: c.multMax, fireRateMult: c.multMax, rangeMult: c.multMax, pierceAdd: c.pierceAddMax, projectilesAdd: c.projectilesAddMax, moveSpeedMult: c.moveSpeedMax });
-    expect(down).toMatchObject({ damageMult: c.multMin, fireRateMult: c.multMin, rangeMult: c.multMin, moveSpeedMult: 1 });
+    expect(up).toEqual({ damageMult: c.multMax, fireRateMult: c.multMax, rangeMult: c.multMax, pierceAdd: c.pierceAddMax, projectilesAdd: c.projectilesAddMax, moveSpeedMult: c.moveSpeedMax, spreadMult: c.spreadMax });
+    expect(down).toMatchObject({ damageMult: c.multMin, fireRateMult: c.multMin, rangeMult: c.multMin, moveSpeedMult: 1, spreadMult: c.spreadMin });
     for (const [weapon, mods] of [['pencil', up], ['laser', up], ['yarn', up], ['fishbone', up], ['yarn', down], ['laser', down]] as const) {
       const run = runFromScenario({ seed: 'clamp0', distanceM: 1000, weapon, mods, hp: 1e9 });
       for (let i = 0; i < 1500; i++) step(run, ((i >> 5) % 3 - 1) * 4 as -4 | 0 | 4);

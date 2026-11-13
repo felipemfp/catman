@@ -153,11 +153,14 @@ describe('gate guards in play (CORE_VERSION 11)', () => {
     for (const seed of seeds) {
       const f = findGuard(seed);
       if (!f) continue;
-      const run = runFromScenario({ seed, distanceM: (f.k - 3) * config.lane.segmentM, hp: 1e9, catX: f.boxX, weapon: 'laser', mods: { rangeMult: config.clamps.multMin } });
+      // minimum range, damage and fire rate, so the cat really kills nothing in the block (asserted below). On CORE_VERSION ≤ 12
+      // a homing lane rat stacking onto the cat could supply the hit; rats no longer stack, so the block must.
+      const run = runFromScenario({ seed, distanceM: (f.k - 3) * config.lane.segmentM, hp: 1e9, catX: f.boxX, weapon: 'laser', mods: { rangeMult: config.clamps.multMin, damageMult: config.clamps.multMin, fireRateMult: config.clamps.multMin } });
       let hit = false;
       let taken = false;
       for (let t = 0; t < 3000 && !taken; t++) {
         for (const e of step(run, 0)) {
+          if (e.t === 'ratKilled') expect(e.segmentK, `${seed}: a guard died`).not.toBe(f.k - 1);
           if (e.t === 'catHit') hit = true;
           if (e.t === 'gateTaken') { taken = true; expect(hit).toBe(true); }
         }

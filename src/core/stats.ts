@@ -4,7 +4,7 @@ import { config } from './config.ts';
 import { clamp } from './math.ts';
 
 export const DPS_AXIS: readonly StatKey[] = ['damageMult', 'fireRateMult', 'projectilesAdd'];
-export const DEBUFFABLE: readonly StatKey[] = ['damageMult', 'fireRateMult', 'rangeMult'];
+export const DEBUFFABLE: readonly StatKey[] = ['damageMult', 'fireRateMult', 'rangeMult', 'spreadMult'];
 export const ADDITIVE: readonly StatKey[] = ['pierceAdd', 'projectilesAdd'];
 
 export function isAdditive(s: StatKey): boolean {
@@ -15,7 +15,7 @@ export function onDpsAxis(s: StatKey): boolean {
 }
 
 export function defaultMods(): Mods {
-  return { damageMult: 1, fireRateMult: 1, rangeMult: 1, pierceAdd: 0, projectilesAdd: 0, moveSpeedMult: 1 };
+  return { damageMult: 1, fireRateMult: 1, rangeMult: 1, pierceAdd: 0, projectilesAdd: 0, moveSpeedMult: 1, spreadMult: 1 };
 }
 
 export function clampMods(m: Mods): void {
@@ -26,6 +26,7 @@ export function clampMods(m: Mods): void {
   m.pierceAdd = clamp(m.pierceAdd, c.pierceAddMin, c.pierceAddMax);
   m.projectilesAdd = clamp(m.projectilesAdd, c.projectilesAddMin, c.projectilesAddMax);
   m.moveSpeedMult = clamp(m.moveSpeedMult, c.moveSpeedMin, c.moveSpeedMax);
+  m.spreadMult = clamp(m.spreadMult, c.spreadMin, c.spreadMax);
 }
 
 function applyOne(m: Mods, stat: StatKey, value: number): void {
@@ -99,6 +100,11 @@ export function effDamage(weapon: WeaponId, m: Mods): number {
 export function effFireRate(weapon: WeaponId, m: Mods): number {
   const w = config.weapons[weapon];
   return (w.kind === 'beam' ? w.dps : w.rate) * m.fireRateMult;
+}
+/** Spread: the fan step between projectiles (vx), or the laser beam's width. Wider is the buff side. */
+export function effSpread(weapon: WeaponId, m: Mods): number {
+  const w = config.weapons[weapon];
+  return (w.kind === 'beam' ? w.beamWidthU : w.spreadVx) * m.spreadMult;
 }
 export function effRange(weapon: WeaponId, m: Mods): number {
   const w = config.weapons[weapon];
